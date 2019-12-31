@@ -1,0 +1,787 @@
+/*
+ *  Copyright (c) 2019 IBM Corporation and other Contributors.
+ * 
+ *  All rights reserved. This program and the accompanying materials
+ *  are made available under the terms of the Eclipse Public License v1.0
+ *  which accompanies this distribution, and is available at
+ *  http://www.eclipse.org/legal/epl-v10.html
+ */
+
+
+package com.ibm.wiotp.masdc;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.FileOutputStream;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.util.Map;
+import java.sql.*;
+import java.nio.file.*;
+import java.util.logging.*;
+import org.json.*;
+
+// Extract data from SCADA historian database (mySQL and MSSQL), dump in a csv file,
+// and execute script to process data
+
+public class DBConnector {
+
+    // Variables
+    static final int MAX_TABLE_COLUMNS = 50;
+
+    static String connConfigFile = "";
+    static String tableConfigFile = "";
+    static String tableRunStatusFile = "";
+    static String sourceHost = "";
+    static String sourcePort = "";
+    static String sourceDatabase = "";
+    static String sourceSchema = "";
+    static String sourceUser = "";
+    static String sourcePassword = "";
+    static String dbType = "";
+    static String csvFilePath = "";
+    static String prcFilePath = "";
+    static String offFilePath = "";
+    static String clnFilePath = "";
+    static String prCsvFilePath = "";
+    static String ddlFilePath = "";
+    static String pythonPath = "";
+    static String userHome = "";
+    static String tableName = "";
+    static String tstampColName = "";
+    static String installDir = "";
+    static String dataDir = "";
+    static String logFile = "";
+    static String insertSQL = "";
+    static String sortStr = "";
+    static int chunkSize = 50000;
+    static int scanInterval = 300;
+    static int batchInsertSize = 1000;
+    static String customSql = "";
+    static int sampleEventCount = 1;
+    static int useLift = 1;
+    static Logger logger = Logger.getLogger("dataingest.extract");  
+    static FileHandler fh;  
+    static JSONArray collist = new JSONArray();
+    static String [] cname = new String[MAX_TABLE_COLUMNS];
+    static String [] ctype = new String[MAX_TABLE_COLUMNS];
+    
+
+    /**
+     * @param tableName      Name of the table to extract data from. This is a required item.
+     */
+    public static void main(String[] args) {
+
+        try {
+            tableName = args[0];
+
+            // Validate arguments
+            if (tableName.isEmpty()) {
+                logger.info("ExtractData: Required argument tableName is not specified.");
+                System.exit(1);
+            }
+
+            // Get user home dir
+            userHome = System.getProperty("user.home");
+
+            // Set simpleFormatter format
+            System.setProperty("java.util.logging.SimpleFormatter.format", "%1$tF %1$tT : %4$s : %2$s : %5$s%6$s%n");
+
+            // Get install and data dir location from enviironment variables
+            Map <String, String> map = System.getenv();
+            for ( Map.Entry <String, String> entry: map.entrySet() ) {
+                if ( entry.getKey().compareTo("DATAINGEST_INSTALL_DIR") == 0 ) {
+                    installDir = entry.getValue();
+                } else if ( entry.getKey().compareTo("DATAINGEST_DATA_DIR") == 0 ) {
+                    dataDir = entry.getValue();
+                }
+            }
+            if ( installDir.compareTo("") == 0 ) {
+                installDir = userHome + "/ibm/masdc";
+            } 
+            if ( dataDir.compareTo("") == 0 ) {
+                dataDir = userHome + "/ibm/masdc";
+            } 
+
+            // set log file handler
+            Handler[] handlers = logger.getHandlers(); 
+            System.out.printf("Handlers %d\n", handlers.length);
+            for ( int i = 0; i < handlers.length; i++ ) {
+                System.out.printf("Handler %d\n", i);
+                Handler lh = handlers[i];
+                logger.removeHandler(lh);
+            }
+            logFile = installDir + "/volume/logs/" + tableName + "/extract.log";
+            fh = new FileHandler(logFile);  
+            logger.addHandler(fh);
+            SimpleFormatter formatter = new SimpleFormatter();
+            fh.setFormatter(formatter);
+
+            logger.info("Data processing: " + tableName);
+
+            String osname = System.getProperty("os.name");
+            if ( osname.startsWith("Windows")) {
+                pythonPath = installDir + "/python-3.7.5/python.exe";
+            } else {
+                pythonPath = "python3";
+            }
+
+            // Set configuration file paths
+            connConfigFile = dataDir + "/volume/config/connection.json";
+            tableConfigFile = dataDir + "/volume/config/" + tableName + ".json";
+            tableRunStatusFile = dataDir + "/volume/config/" + tableName + ".running";
+
+            // Get SCADA historian database configuration
+            logger.info("Read connection configuration file: " + connConfigFile);
+            String fileContent = new String(Files.readAllBytes(Paths.get(connConfigFile)));
+            JSONObject connConfig = new JSONObject(fileContent);
+            JSONObject scada = connConfig.getJSONObject("scada");
+            JSONObject datalake = connConfig.getJSONObject("datalake");
+            dbType = scada.getString("dbtype");
+
+            // Check if historian is not configured and csv files are created using other options
+            if ( dbType.compareTo("none") != 0 ) {
+                sourceHost = scada.getString("host");
+                sourcePort = scada.getString("port");
+                sourceDatabase = scada.getString("database");
+                sourceSchema = scada.getString("schema");
+                sourceUser = scada.getString("user");
+                sourcePassword = scada.getString("password");
+            }
+
+            // Get table configuration
+            fileContent = new String(Files.readAllBytes(Paths.get(tableConfigFile)));
+            logger.info("Read device type configuration file: " + tableConfigFile);
+            JSONObject tableConfig = new JSONObject(fileContent);
+            JSONObject dbConfig = tableConfig.getJSONObject("database");
+            JSONObject eventData = tableConfig.getJSONObject("eventData");
+            chunkSize = dbConfig.getInt("fetchSize");
+            scanInterval = dbConfig.getInt("scanInterval");
+            customSql = dbConfig.getString("sqlStatement");
+            sampleEventCount = tableConfig.getInt("mqttEvents");
+            useLift = tableConfig.getInt("useLift");
+            batchInsertSize = dbConfig.getInt("insertSize");
+            tstampColName = eventData.getString("timestamp");
+           
+            // data files 
+            csvFilePath = dataDir + "/volume/data/csv/" + tableName + ".csv";
+            prcFilePath = dataDir + "/volume/data/" + tableName + "/data/.processed";
+            offFilePath = dataDir + "/volume/data/" + tableName + "/data/.dataOffset";
+            clnFilePath = dataDir + "/volume/data/" + tableName + "/schemas/" + tableName + ".dcols";
+            prCsvFilePath = dataDir + "/volume/data/" + tableName + "/data/" + tableName + ".csv";
+            ddlFilePath = dataDir + "/volume/data/" + tableName + "/schemas/" + tableName + ".ddl";
+          
+            // Extract sample data, identify entiries and register with WIoTP
+            register();
+
+            // Extract data, and upload to data lake
+            upload(datalake);
+
+            logger.info("End: Data processing: " + tableName);
+
+            // delete running status file
+            try {         
+                File f= new File(tableRunStatusFile);
+                if (f.delete()) {  
+                    logger.info("Deleted run status file: " + tableName);
+                } else {  
+                    logger.info("Could not delete run status file: " + tableName);
+                }  
+            } catch(Exception e) {  
+                e.printStackTrace();  
+            }  
+
+        } catch (Exception ex) {
+            logger.info("Exception information: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+    }
+
+
+    // Extract sample data and configure/register WIoTP
+    private static void register() {
+
+        FileWriter fw;
+        Connection conn = null;
+        Statement stmt = null;
+
+        try {
+            // Check for script action
+            boolean useChunk = false;
+            String scriptPath = installDir + "/bin/register.py";
+
+            if ( dbType.compareTo("none") != 0 ) {
+                // DB connection
+                logger.info("Connecting to database to extract data from " + tableName);
+                boolean getNextChunk = true;
+                int type = 1;
+                String DB_URL = "jdbc:sqlserver://"+sourceHost+":"+sourcePort+";databaseName="+sourceDatabase+";user="+
+                    sourceUser+";password="+sourcePassword;
+                if ( dbType.compareTo("mysql") == 0 ) {
+                    DB_URL = "jdbc:mysql://" + sourceHost + "/" + sourceSchema;
+                    conn = DriverManager.getConnection(DB_URL, sourceUser, sourcePassword);
+                } else {
+                    conn = DriverManager.getConnection(DB_URL);
+                    type = 2;
+                }
+    
+                stmt = conn.createStatement();
+    
+                // retrieve records
+                String limitStr = "";
+                int startRow = 1;
+                int cSize = 5;
+                if ( type == 1 ) {
+                    limitStr = " limit " + startRow + "," + cSize;
+                } else {
+                    limitStr = " OFFSET " + startRow +
+                           " ROWS FETCH NEXT " + cSize + " ROWS ONLY";
+                }
+     
+                ResultSet rs;
+                logger.info("SQL: " + customSql + limitStr);
+                rs = stmt.executeQuery(customSql + limitStr);
+    
+                // Get column count                
+                final ResultSetMetaData rsmd = rs.getMetaData();
+                int colunmCount = rsmd.getColumnCount();
+    
+                // Open csv file and write column headers
+                logger.info("Dump extracted data to: " + csvFilePath);
+                fw = new FileWriter(csvFilePath);
+                for (int i = 1; i <= colunmCount; i++) {
+                    fw.append(rs.getMetaData().getColumnName(i));
+                    if ( i < colunmCount ) fw.append(",");
+                }
+                fw.append(System.getProperty("line.separator"));
+      
+                // For each row, loop thru the number of columns and write to the csv file
+                int rowCount = 0;
+                while (rs.next()) {
+                    for (int i = 1; i <= colunmCount; i++) {
+                        if (rs.getObject(i) != null) {
+                            String data = rs.getObject(i).toString();
+                            fw.append(data);
+                        } else {
+                            String data = "null";
+                            fw.append(data);
+                        }
+                        if ( i < colunmCount ) fw.append(",");
+                    }
+                    fw.append(System.getProperty("line.separator"));
+                    rowCount += 1;
+                }
+                fw.flush();
+                fw.close();
+
+                String msg1 = String.format("Data extracted: columns=%d  rows=%d\n", colunmCount, rowCount);
+                logger.info(msg1);
+    
+                // Run script if specified
+                String[] command ={pythonPath, scriptPath, tableName, dataDir}; 
+                logger.info("Run action script: " + scriptPath);
+                ProcessBuilder pb = new ProcessBuilder(command);
+                try {
+                    Process p = pb.start();
+                    p.waitFor();
+                    p.destroy();
+                    logger.info("Register script is executed.");
+                } catch (Exception e) {
+                    logger.info("Exception during execution of action script." + e.getMessage());
+                }
+        
+                conn.close();
+
+            } else {
+ 
+                // Data is extracted using other option - CSV file should be present
+                String[] command ={pythonPath, scriptPath, tableName, dataDir}; 
+                logger.info("Run action script: " + scriptPath);
+                ProcessBuilder pb = new ProcessBuilder(command);
+                try {
+                    Process p = pb.start();
+                    p.waitFor();
+                    p.destroy();
+                    logger.info("Script is executed.");
+                } catch (Exception e) {
+                    logger.info("Exception during execution of action script." + e.getMessage());
+                }
+        
+            }
+
+            logger.info("Registration process is complete.");
+					
+        } catch (Exception ex) {
+            logger.info("Exception information: " + ex.getMessage());
+        }
+
+    }
+
+    // Extract and Upload data to data lake
+    private static void upload(JSONObject datalake) {
+
+        FileWriter fw;
+        Connection conn = null;
+        Statement stmt = null;
+
+        try {
+            // Check for script action
+            boolean useChunk = true;
+            String scriptPath = installDir + "/bin/transform.py";
+
+            if ( dbType.compareTo("none") != 0 ) {
+                // DB connection
+                logger.info("Upload: Connecting to database to extract data from " + tableName);
+                boolean getNextChunk = true;
+                int type = 1;
+                String DB_URL = "jdbc:sqlserver://"+sourceHost+":"+sourcePort+";databaseName="+sourceDatabase+";user="+
+                    sourceUser+";password="+sourcePassword;
+
+                // For prep and upload action, get table column names from data lake
+                // only before first extraction of data from SCADA
+                String applyDDL = "false";
+                if ( collist.length() == 0 ) {
+                    if ( getDB2TableHeaders(datalake, tableName, clnFilePath) == 1 ) {
+                        logger.info("Failed to get table column names from Data Lake" + tableName);
+                        applyDDL = "true";
+                    }
+                }
+
+                // retrieve records
+                String limitStr = "";
+                long t_stamp = 0;
+                int nRows = 0;
+                while ( getNextChunk ) {
+                    // Set limit and offset
+                    int startRow = 1;
+                    try {
+                        String offsetRecordStr = new String (Files.readAllBytes(Paths.get(offFilePath)));
+                        JSONObject offsetRecord = new JSONObject(offsetRecordStr);
+                        startRow = offsetRecord.getInt("startRow");
+                        t_stamp = offsetRecord.getLong("t_stamp");
+                        if ( startRow == 0 ) {
+                            logger.info("Invalid data offset. Reset to 1.");
+                            startRow = 1;
+                        }
+                    }
+                    catch (Exception e) {
+                        logger.info("Data offset file is not created yet. Start from begining. " + e.getMessage());
+                    } 
+    
+                    if ( dbType.compareTo("mysql") == 0 ) {
+                        DB_URL = "jdbc:mysql://" + sourceHost + "/" + sourceSchema;
+                        conn = DriverManager.getConnection(DB_URL, sourceUser, sourcePassword);
+                        limitStr = " limit " + startRow + "," + chunkSize;
+                    } else {
+                        conn = DriverManager.getConnection(DB_URL);
+                        type = 2;
+                        limitStr = " limit OFFSET " + startRow +
+                               " ROWS FETCH NEXT " + chunkSize + " ROWS ONLY";
+                    }
+    
+                    stmt = conn.createStatement();
+    
+                    ResultSet rs;
+                    logger.info("SQL: " + customSql + limitStr);
+                    rs = stmt.executeQuery(customSql + limitStr);
+    
+                    // Get column count                
+                    final ResultSetMetaData rsmd = rs.getMetaData();
+                    int colunmCount = rsmd.getColumnCount();
+    
+                    // move to last row and get time stamp value
+                    rs.last();
+                    t_stamp = rs.getLong(tstampColName);
+                    nRows = rs.getRow();
+                    String emsg = String.format("RowsExtracted: %d Last_tTtamp: %d", nRows, t_stamp);
+                    logger.info(emsg);
+                    rs.first();
+                    
+                    // Open csv file and write column headers    
+                    fw = new FileWriter(csvFilePath);
+                    for (int i = 1; i <= colunmCount; i++) {
+                        fw.append(rs.getMetaData().getColumnName(i));
+                        if ( i < colunmCount ) fw.append(",");
+                    }
+                    fw.append(System.getProperty("line.separator"));
+        
+                    // For each row, loop thru the number of columns and write to the csv file
+                    int rowCount = 0;
+                    while (rs.next()) {
+                        if ( rs.getLong(tstampColName) < t_stamp) {
+                            for (int i = 1; i <= colunmCount; i++) {
+                                if (rs.getObject(i) != null) {
+                                    String data = rs.getObject(i).toString();
+                                    fw.append(data);
+                                } else {
+                                    String data = "null";
+                                    fw.append(data);
+                                }
+                                if ( i < colunmCount ) fw.append(",");
+                            }
+                            fw.append(System.getProperty("line.separator"));
+                            rowCount += 1;
+                        }
+                    }
+                    fw.flush();
+                    fw.close();
+                   
+                    conn.close();
+
+                    String dmsg = String.format("Data extracted: columns=%d  rows=%d\n", colunmCount, rowCount); 
+                    logger.info(dmsg);
+   
+                    // Run script is specified
+                    if ( startRow == 1 && sampleEventCount == -1 ) {
+                        logger.info("First chunk is already sent using MQTT during registration process.");
+                    } else {
+                        String[] command ={pythonPath, scriptPath, tableName, applyDDL}; 
+                        // logger.info("Execute action script: " + scriptPath);
+                        ProcessBuilder pb = new ProcessBuilder(command);
+                        try {
+                            Process p = pb.start();
+                            p.waitFor();
+                            p.destroy();
+                            // logger.info("Script is executed.");
+                         } catch (Exception e) {
+                            logger.info("Exception during execution of action script." + e.getMessage());
+                        }
+                    
+                        if ( useLift == 0 ) {
+                            // Upload data using batch insert
+                            int nuploaded = 0;
+                            if (rowCount > 0 ) {
+                                nuploaded = batchInsert(datalake, tableName, ddlFilePath, prCsvFilePath);
+                            }
+
+                            // oepn file to write processed data
+                            if ( nuploaded > 0 || rowCount == 0 ) {
+                                fw = new FileWriter(prcFilePath);
+                                String procRec = "{ \"processed\":" + nuploaded + ", \"uploaded\":\"Y\" }";
+                                fw.write(procRec);
+                                fw.flush();
+                                fw.close();
+                            }
+                        }
+                    }
+        
+                    if ( nRows < chunkSize || useChunk == false  ) {
+                        getNextChunk = false;
+                    }
+                    
+                    // Update data offset file
+                    // read number of rows processed by script
+                    int nprocessed = chunkSize;
+                    String uploaded = "N";
+                    try {
+                        String prcfContent = new String ( Files.readAllBytes( Paths.get(prcFilePath)));
+                        JSONObject prcfObject = new JSONObject(prcfContent);
+                        nprocessed = prcfObject.getInt("processed");
+                        uploaded = prcfObject.getString("uploaded");
+                        String msg2 = String.format("Processsed: %d, uploaded: %s", nprocessed, uploaded);
+                        logger.info(msg2);
+                    }
+                    catch (Exception e) {
+                        logger.info("Invalid nprocessed data, set to chunkSize." + e.getMessage());
+                        nprocessed = chunkSize;
+                    }
+    
+                    // break the loop if data is not uploaded successfully
+                    if ( uploaded.compareTo("N") == 0 ) { 
+                        logger.info("Failed to upload processed data.");
+                        break;
+                    }
+    
+                    startRow = startRow + nprocessed;
+    
+                    // oepn file to write offset location
+                    fw = new FileWriter(offFilePath);
+                    String offsetRec = "{ \"startRow\":" + startRow + ", \"t_stamp\":" + t_stamp + " }";
+                    fw.write(offsetRec);
+                    fw.flush();
+                    fw.close();
+    
+                    // remove temprary process file
+                    File file = new File(prcFilePath);
+                    file.delete();
+
+                    try {
+                        Thread.sleep(5000);
+                    } catch (Exception e) {}
+            
+                }
+        
+            } else {
+
+                // Data is extracted using customer provided option 
+                // - CSV file should be present, get table header from data lake and upload the data
+
+                // For prep and upload action, get table column names from data lake
+                // only before first extraction of data from SCADA
+                String applyDDL = "false";
+                if ( collist.length() == 0 ) {
+                    if ( getDB2TableHeaders(datalake, tableName, clnFilePath) == 1 ) {
+                        logger.info("Failed to get table column names from Data Lake" + tableName);
+                        applyDDL = "true";
+                    }
+                }
+
+                String[] command ={pythonPath, scriptPath, tableName, applyDDL}; 
+                logger.info("Execute action script: " + scriptPath);
+                ProcessBuilder pb = new ProcessBuilder(command);
+                try {
+                    Process p = pb.start();
+                    p.waitFor();
+                    p.destroy();
+                    logger.info("Script is executed.");
+                } catch (Exception e) {
+                    logger.info("Exception during execution of action script." + e.getMessage());
+                }
+
+                if ( useLift == 0 ) {
+                    // Upload data using batch insert
+                    batchInsert(datalake, tableName, ddlFilePath, prCsvFilePath);
+                }
+
+            }
+
+            logger.info("Data processing cycle is complete.");
+					
+        } catch (Exception ex) {
+            logger.info("Exception information:" + ex.getMessage());
+        }
+    }
+
+    // Get table headers from WIoTP Data Lake (DB2)
+    private static int getDB2TableHeaders(JSONObject datalake, String tableName, String clnFilePath) {
+        Connection con;
+        Statement stmt;
+        ResultSet rs;
+        int retval = 0;
+        
+        try {
+            Class.forName("com.ibm.db2.jcc.DB2Driver");
+            
+            JSONObject obj = new JSONObject();
+
+            // Get data lake config items
+            String host = (String)datalake.get("host");
+            String port = (String)datalake.get("port");
+            String user = (String)datalake.get("user");
+            String password = (String)datalake.get("password");
+            String urlSSL = "jdbc:db2://" + host + ":" + port + "/BLUDB:sslConnection=true;";
+            String colTitle;
+
+            logger.info("Connecting to Data Lake to get table column names.");
+            con = DriverManager.getConnection(urlSSL, user, password);
+            con.setAutoCommit(false);
+            stmt = con.createStatement();
+
+            String tabname = "IOT_" + tableName.toUpperCase();
+            String sql = "select * from SYSIBM.SYSCOLUMNS where tbname='" + tabname + "' order by colno";
+            rs = stmt.executeQuery(sql);
+            while (rs.next()) {
+                colTitle = rs.getString(1);
+                collist.put(colTitle);
+            }
+
+            obj.put("ColumnTitle", collist);
+            logger.info(obj.toString());
+
+            FileOutputStream outputStream = new FileOutputStream(clnFilePath);
+            outputStream.write(obj.toString().getBytes());
+            outputStream.close();
+
+            rs.close();
+
+            if ( collist.length() > 0 ) {
+                String delSql = "delete from (select * from " + tabname + " fetch first 1 rows only)";
+                rs = stmt.executeQuery(sql);
+                rs.close();
+            } else {
+                retval = 1;
+            }
+
+            stmt.close();
+            con.commit();
+            con.close();
+        }
+
+        catch (Exception ex) {
+            logger.info("Exception information:");
+            while (ex != null) {
+                logger.info("Error msg: " + ex.getMessage());
+            }
+            retval = 1;
+        }
+
+        return retval;
+    }
+
+
+    // Batch insert in WIoTP Data Lake (DB2) from CSV file
+    private static int batchInsert(JSONObject datalake, String tableName, String ddlFilePath, String prCsvFilePath) {
+        Connection con;
+        Statement stmt;
+        ResultSet rs;
+        int retval = 0;
+        String line = ""; 
+        int rowsProcessed = 0;
+        int batchCount = 0;
+        
+        try {
+            Class.forName("com.ibm.db2.jcc.DB2Driver");
+            
+            // Get data lake config items
+            String host = (String)datalake.get("host");
+            String port = (String)datalake.get("port");
+            String user = (String)datalake.get("user");
+            String password = (String)datalake.get("password");
+            String urlSSL = "jdbc:db2://" + host + ":" + port + "/BLUDB:sslConnection=true;";
+         
+            // Create SQL for inserting records
+            if ( insertSQL.length() == 0 ) {
+                logger.info("Read DDL file to get table column name and data types.");
+                String ddlStr = "";
+                String colnames = "";
+                String vals = "";
+
+                ddlStr = new String ( Files.readAllBytes( Paths.get(ddlFilePath) ) );
+                logger.info("Use DDL data: " + ddlStr);
+
+                String [] ddlParts = ddlStr.split("\\(", 2);
+                logger.info("ddlParts[0]: " + ddlParts[0]);
+                logger.info("ddlParts[1]: " + ddlParts[1]);
+
+                String [] columns = ddlParts[1].split(",+");
+                logger.info("Number of table columns to be added: " + columns.length);
+                String [] ddlcname = new String[MAX_TABLE_COLUMNS];
+                String [] ddlctype = new String[MAX_TABLE_COLUMNS];
+
+                for (int i=0; i<columns.length; i++) {
+                    String [] colParts = columns[i].trim().split(" ");
+                    ddlcname[i] = colParts[0];
+                    ddlctype[i] = "char";
+                    if ( colParts[1].toUpperCase().contains("DOUBLE")) {
+                        ddlctype[i] = "double";
+                    } else if ( colParts[1].toUpperCase().contains("NUMBER")) {
+                        ddlctype[i] = "double";
+                    } else if ( colParts[1].toUpperCase().contains("INTEGER")) {
+                        ddlctype[i] = "double";
+                    } else if ( colParts[1].toUpperCase().contains("TIMESTAMP")) {
+                        ddlctype[i] = "timestamp";
+                    }
+                }
+
+                for (int j=0; j<collist.length(); j++) {
+                    String colName = collist.get(j).toString();
+                    if ( j > 0 ) {
+                        colnames = colnames + ", ";
+                        vals = vals + ", ";
+                    }
+
+                    int found = 0;
+                    for (int i=0; i<columns.length; i++) {
+                        if ( colName.compareTo(ddlcname[i]) == 0 ) {
+                            ctype[j] = ddlctype[i];
+                            logger.fine("Datalake: Column=" + colName + " Type=" + ctype[j]);
+                            colnames = colnames + colName;
+                            vals = vals + "?"; 
+                            found = 1;
+                            break;
+                        }
+                    }
+         
+                    if ( found == 0 ) {
+                        logger.info("ERROR: Could not find type for " + colName);
+                    }
+                }
+    
+                String tabname = "IOT_" + tableName.toUpperCase();
+                insertSQL = "INSERT INTO " + tabname + " (" + colnames + ") VALUES (" + vals + ")";
+                logger.info("SQL Stmt: " + insertSQL);
+                logger.info("Use CSV file to batch update: " + prCsvFilePath);
+            }
+
+            logger.info("Connect to data lake");
+            con = DriverManager.getConnection(urlSSL, user, password);
+            con.setAutoCommit(false);
+
+            PreparedStatement ps = con.prepareStatement(insertSQL);
+            BufferedReader bReader = new BufferedReader(new FileReader(prCsvFilePath));
+            while ((line = bReader.readLine()) != null) {
+                try {
+                    if (line != null) {
+                        // Skip header line
+                        if ( rowsProcessed == 0 ) {
+                            rowsProcessed += 1;
+                            continue;
+                        }
+
+                        String[] array = line.split(",");
+
+                        if ( rowsProcessed < 2 ) {
+                            logger.fine("Line: " + array.length + " - " + line);
+                        }
+                        for (int i=0; i<array.length; i++) {
+                            int index = i + 1;
+                            if (ctype[i] == "char") {
+                                ps.setString(index, array[i]);
+                            } else if (ctype[i] == "double") {
+                                double d = Double.parseDouble(array[i]);
+                                ps.setDouble(index,d);
+                            } else if (ctype[i] == "timestamp") {
+                                Timestamp ts = Timestamp.valueOf(array[i]);
+                                ps.setTimestamp(index,ts);
+                            }
+                        }
+
+                        ps.addBatch();
+                        batchCount += 1;
+                        rowsProcessed += 1; 
+                    }
+                    if ( batchCount >= batchInsertSize ) {
+                        String msg = String.format("Batch update table: count:%d", batchCount);
+                        logger.info(msg);
+                        ps.executeBatch();
+                        con.commit();
+                        ps.clearBatch();
+                        batchCount = 0;
+                    }
+                } catch (Exception ex) {
+                    if ( line != null ) {
+                        logger.info("Line: " + line);
+                    }
+                    ex.printStackTrace();
+                    break;
+                }
+                finally {
+                    if (bReader == null) {
+                        bReader.close();
+                    }
+                }
+            }
+            if ( batchCount > 0 ) {
+                String msg = String.format("Batch update table. count:%d", batchCount);
+                logger.info(msg);
+                ps.executeBatch();
+                con.commit();
+                ps.clearBatch();
+            }
+            con.commit();
+            con.close();
+            retval = rowsProcessed - 1;
+            String msg = String.format("Total rows processed: %d", retval);
+            logger.info(msg);
+        }
+        catch (Exception e) {
+            logger.info("rowsProcessed: " + rowsProcessed + " batchCount: " + batchCount);
+            logger.info("Line: " + line);
+            e.printStackTrace();
+        }
+
+        return retval;
+    }
+}

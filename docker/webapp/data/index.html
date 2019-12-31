@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  <link rel="shortcut icon" href="../img/favicon.ico">
+  <title>Entity Type Configuration - IBM Maximo Application Suite - SCADA Bulk Data Ingest Connector</title>
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="../css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../css/theme_extra.css" type="text/css" />
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css">
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "Entity Type Configuration";
+    var mkdocs_page_input_path = "data.md";
+    var mkdocs_page_url = null;
+  </script>
+  
+  <script src="../js/jquery-2.1.1.min.js" defer></script>
+  <script src="../js/modernizr-2.8.3.min.js" defer></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+  <script>hljs.initHighlightingOnLoad();</script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+      <div class="wy-side-nav-search">
+        <a href=".." class="icon icon-home"> IBM Maximo Application Suite - SCADA Bulk Data Ingest Connector</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+	<ul class="current">
+	  
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="..">Home</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../overview/">Overview</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../deployment/">Deploy Container</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">Configure Container</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../configuration/">Configuration Files</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../connection/">Connection Configuration</a>
+                </li>
+                <li class=" current">
+                    
+    <a class="current" href="./">Entity Type Configuration</a>
+    <ul class="subnav">
+            
+    <li class="toctree-l3"><a href="#entity-type-configuration">Entity Type Configuration</a></li>
+    
+        <ul>
+        
+            <li><a class="toctree-l4" href="#configuration-object">Configuration Object</a></li>
+        
+        </ul>
+    
+
+    </ul>
+                </li>
+    </ul>
+	    </li>
+          
+        </ul>
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="..">IBM Maximo Application Suite - SCADA Bulk Data Ingest Connector</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="..">Docs</a> &raquo;</li>
+    
+      
+        
+          <li>Configure Container &raquo;</li>
+        
+      
+    
+    <li>Entity Type Configuration</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h1 id="entity-type-configuration">Entity Type Configuration<a class="headerlink" href="#entity-type-configuration" title="Permanent link"></a></h1>
+<p>In Watson IoT Platform Data Lake, the device data for different entity/device types are stored in 
+their own table. The tables are named as <code>IOT_&lt;entityType&gt;</code>. The configuration items that 
+controls data extraction for a specific entity type from SCADA historian, transform and map into
+required format and upload to Watson IoT Platform Data Lake, are defined in a configuration file 
+<code>&lt;InstallRoot&gt;/volume/config/&lt;entityType&gt;.json</code>.</p>
+<p>The configuration items are provided to handle two use cases.</p>
+<ul>
+<li>
+<p>Each record in SCADA historian table represents one event from a device.
+<img alt="Data Set 1" src="../datasample1.png" /></p>
+</li>
+<li>
+<p>Each record in SCADA historian table represents all events from a device.
+<img alt="Data Set 2" src="../datasample2.png" /></p>
+</li>
+</ul>
+<h2 id="configuration-object">Configuration Object<a class="headerlink" href="#configuration-object" title="Permanent link"></a></h2>
+<p>Provide data configuration object in a json formated file:</p>
+<pre><code>{
+    &quot;client&quot;: &quot;string&quot;,
+    &quot;database&quot;: {
+        &quot;sqlStatement&quot;: &quot;string&quot;,
+        &quot;fetchSize&quot;: integer,
+        &quot;insertSize&quot;: integer,
+        &quot;scanInterval&quot;: integer
+    },
+    &quot;tagData&quot;: {
+        &quot;tagpath&quot;: &quot;string&quot;,
+        &quot;tagpathParseCount&quot;: integer,
+        &quot;tagMap&quot;: {},
+        &quot;eventTagLevel&quot;: integer,
+        &quot;eventColumnName&quot;: &quot;string&quot;
+    },
+    &quot;entityData&quot;: {
+        &quot;deviceType&quot;: &quot;string&quot;,
+        &quot;deviceId&quot;: &quot;string&quot;,
+        &quot;deviceIdPrefix&quot;: &quot;string&quot;,
+        &quot;deviceIdFormat&quot;: &quot;string&quot;,
+        &quot;registerDevice&quot;: true|false
+    },
+    &quot;eventData&quot;: {
+        &quot;timestamp&quot;: &quot;string&quot;,
+        &quot;id&quot;: &quot;string&quot;,
+        &quot;type&quot;: &quot;string&quot;,
+        &quot;value&quot;: &quot;string&quot;,
+        &quot;consolidateTimestamp&quot;: true|false,
+        &quot;ignoreTypes&quot;: [],
+        &quot;registerInterfaces&quot;: true|false
+    },
+    &quot;discardColumns&quot;: [],
+    &quot;renameColumns&quot;: [],
+    &quot;interfaceEvents&quot;: {},
+    &quot;interfaceRequired&quot;: [],
+    &quot;mqttEvents&quot;: integer
+}
+</code></pre>
+
+<p>Where:</p>
+<ul>
+<li><code>client</code>: Defines the name of the customer</li>
+<li><code>database</code>: Specifies database related configuration items to extract and upload data<ul>
+<li><code>sqlStatement</code>: Specifies custom SQL statement to extract entity data from SCADA historian</li>
+<li><code>fetchSize</code>: Specifies chunk size for data extraction</li>
+<li><code>insertSize</code>: Specifies batch insert size</li>
+<li><code>scanInterval</code>: Specifies interval in seconds to scan for new data in SCADA historian</li>
+</ul>
+</li>
+</ul>
+<p><strong> This page is still under construction </strong></p>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+      
+        <a href="../connection/" class="btn btn-neutral" title="Connection Configuration"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="http://www.mkdocs.org">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+      
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" style="cursor: pointer">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+        <span><a href="../connection/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+    </span>
+</div>
+    <script>var base_url = '..';</script>
+    <script src="../js/theme.js" defer></script>
+      <script src="../search/main.js" defer></script>
+
+</body>
+</html>

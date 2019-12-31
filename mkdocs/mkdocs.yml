@@ -1,0 +1,34 @@
+# mkdocs build -d ../docker/webapp
+
+site_name: IBM Maximo Application Suite - SCADA Bulk Data Ingest Connector
+nav:
+  - Home: 'index.md'
+  - Overview: 'overview.md'
+  - Deploy Container: 'deployment.md'
+  - Configure Container:
+    - Configuration Files: 'configuration.md' 
+    - Connection Configuration: 'connection.md'
+    - Entity Type Configuration: 'data.md'
+
+theme: readthedocs
+
+markdown_extensions:
+  - toc:
+      permalink: 
+  - admonition
+  # Add this to support expandable sections
+  #- pymdownx.details
+
+# https://squidfunk.github.io/mkdocs-material/extensions/admonition/
+# Note
+# Abstract
+# Info
+# Tip
+# Success
+# Question
+# Warning
+# Failure
+# Danger
+# Bug
+# Example
+# Quote
