@@ -1,0 +1,45 @@
+{
+    "client": "TestUser",
+    "database": {
+        "sqlStatement": "SELECT * FROM iot_device_value ORDER BY POWER_METER_EPOCH ASC ",
+        "fetchSize": 600,
+        "insertSize": 600,
+        "scanInterval": 300
+    },
+    "tagData": {
+        "tagpath": "",
+        "tagpathParseCount": 0,
+        "tagMap": {},
+        "eventTagLevel": 0,
+        "eventColumnName": ""
+    },
+    "entityData": {
+        "deviceType": "",
+        "deviceId": "POWER_METER_CHANNEL",
+        "deviceIdPrefix": "TestDevId",
+        "deviceIdFormat": "%4d",
+        "registerDevice": true
+    },
+    "eventData": {
+        "timestamp": "POWER_METER_EPOCH",
+        "id": "",
+        "type": "",
+        "value": "",
+        "consolidateTimestamp": false,
+        "ignoreTypes": [],
+        "registerInterfaces": true
+    },
+    "discardColumns": [ "DATA_TIMESTAMP", "HOST", "SCRIPT", "POWER_METER_IP", "POWER_METER_MAC", "POWER_METER_NAME", "POWER_METER_DATETIME", "POWER_METER_EGAUGE_NO", "POWER_METER_MCB_BOARD", "POWER_METER_MCB_WAY", "POWER_METER_PHASE", "CREATED_DT", "CREATED_USER", "UPDATED_DT", "UPDATED_USER", "STATUS" ],
+    "renameColumns": {},
+    "interfaceEvents": {
+        "POWER_METER_CHANNEL": "integer",
+        "POWER_METER_VALUE": "number",
+        "POWER_METER_FLOOR": "string",
+        "POWER_METER_AREA": "string",
+        "POWER_METER_FACILITIES": "string",
+        "client": "string"
+    }, 
+    "interfaceRequired": [ "POWER_METER_CHANNEL", "POWER_METER_FLOOR", "POWER_METER_AREA", "POWER_METER_FACILITIES", "client" ],
+    "mqttEvents": 1
+}
+

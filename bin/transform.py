@@ -160,9 +160,8 @@ def transformInputCSV(dataPath, interfaceId, inputFile, outputFile, type, conncf
 
         # Write updated data frame into a CSV file
         logger.info("Transformed File: " + outputFile)
-        if config.useLift == 1:
-            if len(columnTitles) > 0:
-                ndf = ndf.reindex(columns=columnTitles)
+        if len(columnTitles) > 0:
+            ndf = ndf.reindex(columns=columnTitles)
         ndf.to_csv(outputFile, index = False)
         del ndf
 

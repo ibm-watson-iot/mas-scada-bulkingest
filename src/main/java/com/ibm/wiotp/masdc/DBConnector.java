@@ -61,7 +61,7 @@ public class DBConnector {
     static int batchInsertSize = 1000;
     static String customSql = "";
     static int sampleEventCount = 1;
-    static int useLift = 1;
+    static int useLift = 0;
     static Logger logger = Logger.getLogger("dataingest.extract");  
     static FileHandler fh;  
     static JSONArray collist = new JSONArray();
@@ -161,7 +161,7 @@ public class DBConnector {
             scanInterval = dbConfig.getInt("scanInterval");
             customSql = dbConfig.getString("sqlStatement");
             sampleEventCount = tableConfig.getInt("mqttEvents");
-            useLift = tableConfig.getInt("useLift");
+            // useLift = tableConfig.getInt("useLift");
             batchInsertSize = dbConfig.getInt("insertSize");
             tstampColName = eventData.getString("timestamp");
            

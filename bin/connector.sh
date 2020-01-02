@@ -30,7 +30,7 @@ then
 else
     PATH=$PATH:${DI_BIN}
     export PATH
-    python ${DI_BIN}/run.py "$@"
+    python3 ${DI_BIN}/run.py "$@"
 fi
 
 

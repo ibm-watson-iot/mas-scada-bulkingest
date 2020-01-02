@@ -44,7 +44,7 @@ dockerimage:
 dockerrun:
 	@echo Run $$DOCKER_IMAGE_NAME container
 	@mkdir -p `pwd`/volume
-	docker run -dit --name $(DOCKER_IMAGE_NAME) -p 127.0.0.1:5001:443 --volume `pwd`/volume:/volume $(DOCKER_IMAGE_PATH)
+	docker run -dit --name $(DOCKER_IMAGE_NAME) --volume `pwd`/volume:/root/ibm/masdc/volume $(DOCKER_IMAGE_PATH)
 
 dockercheck:
 	@echo Check $$DOCKER_IMAGE_NAME container
@@ -71,9 +71,8 @@ dockerpush:
 docs: mkdocs/mkdocs.yml mkdocs/docs/*.md
 	@echo "Build documentation"
 	@cd mkdocs; mkdocs build -d ../docs
-	@cp -r docs/* docker/webapp/.
 
-install: buildjar
+install:
 	@echo Install MAS Data Connector on localhost
-	-cd bin; chmod +x install.sh; ./install.sh
+	-cd bin; chmod +x install.sh; ./install.sh localhost
 
