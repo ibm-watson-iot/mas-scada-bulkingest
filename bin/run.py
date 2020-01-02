@@ -129,11 +129,12 @@ if __name__ == "__main__":
         retval = createDir(dataDir, "volume/data/" + dtype, dirperm)
         retval += createDir(dataDir, "volume/data/" + dtype + "/schemas", dirperm)
         retval += createDir(dataDir, "volume/data/" + dtype + "/data", dirperm)
-        CP = installDir + '/lift-cli/lib/*:' + installDir + '/lib/*'
+        # CP = installDir + '/lift-cli/lib/*:' + installDir + '/lib/*'
+        CP = installDir + '/jre/lib/*:' + installDir + '/lib/*'
         if os.name == 'nt':
-            CP = installDir + '/lift-cli/lib/*;' + installDir + '/lib/*'
+            CP = installDir + '/jre/lib/*;' + installDir + '/lib/*'
         logger.info("CP: %s", CP)
-        command =  installDir + '/lift-cli/jre/bin/java -classpath "' + CP + '" com.ibm.wiotp.masdc.DBConnector ' + dtype + ' register'
+        command =  installDir + '/jre/bin/java -classpath "' + CP + '" com.ibm.wiotp.masdc.DBConnector ' + dtype + ' register'
         logger.info("CMD: %s", command)
         logger.info("Start process for dtype: %s", dtype)
         os.system(command)

@@ -45,7 +45,7 @@ mkdir -p ${MASDCHOME}/bin
 mkdir -p ${MASDCHOME}/lib
 cp *.py ${MASDCHOME}/bin/.
 cp *.sh ${MASDCHOME}/bin/.
-cp *.bat ${MASDCHOME}/bin/.
+cp requirements.txt ${MASDCHOME}/bin/.
 cp ../lib/* ${MASDCHOME}/lib/.
 chmod +x ${MASDCHOME}/bin/*.sh
 
@@ -57,4 +57,73 @@ mkdir -p ${MASDCHOME}/volume/logs
 mkdir -p ${MASDCHOME}/volume/data/csv
 mkdir -p ${MASDCHOME}/volume/config
 
+#
+# Install dependencies
+# OpenJDK, Python and required Python pkgs
+#
+if [ ! -d ${MASDCHOME}/jre ]; then
+
+    # Install openjdk
+    mkdir -p ${MASDCHOME}/pkgs
+    cd ${MASDCHOME}/pkgs
+    if [ "${OSNAME}" == "Linux" ]; then
+    
+        echo "Download openjdk"
+        curl https://download.java.net/java/GA/jdk13.0.1/cec27d702aa74d5a8630c65ae61e4305/9/GPL/openjdk-13.0.1_linux-x64_bin.tar.gz -L -o openjdk.tar.gz
+    
+    elif [ "${OSNAME}" == "MacOS" ]; then
+    
+        echo "Download openjdk"
+        curl https://download.java.net/java/GA/jdk13.0.1/cec27d702aa74d5a8630c65ae61e4305/9/GPL/openjdk-13.0.1_osx-x64_bin.tar.gz -L -o openjdk.tar.gz
+        cd ${MASDCHOME}
+        tar -xf ./pkgs/openjdk.tar.gz
+        mv ${MASDCHOME}/jdk-13.0.1.jdk/Contents/Home jre
+    fi
+    
+    # Install openjdk
+    if [ -f openjdk.tar.gz ]; then
+        cd ${MASDCHOME}
+        tar -xf ./pkgs/openjdk.tar.gz
+    fi
+
+fi
+
+
+# Install Python
+python3 --version > /dev/null 2>&1
+if [ $? -eq 1 ]; then
+    mkdir -p ${MASDCHOME}/pkgs
+    cd ${MASDCHOME}/pkgs
+    if [ "${OSNAME}" == "MacOS" ]; then
+        echo "Download Python"
+        curl https://www.python.org/ftp/python/3.8.1/python-3.8.1-macosx10.9.pkg -L -o python-3.8.1-macosx10.9.pkg
+        echo "Install Python"
+        sudo installer -store -pkg ${MASDCHOME}/pkgs/python-3.8.1-macosx10.9.pkg -target /
+    elif [ "${OSNAME}" == "Linux" ]; then
+        echo "Install Python"
+        sudo apt-get update
+        sudo apt-get -y install python3-pip
+        sudo apt-get clean
+    fi
+fi
+
+# Install pip3
+pip3 --help > /dev/null 2>&1
+if [ $? -eq 1 ]; then
+    if [ "${OSNAME}" == "MacOS" ]; then
+        echo "Download get-pip.py"
+        curl https://bootstrap.pypa.io/get-pip.py -L -o get-pip.py
+        echo "Install pip"
+        python3 get-pip.py
+    elif [ "${OSNAME}" == "Linux" ]; then
+        echo "Install Python"
+        sudo apt-get update
+        sudo apt-get -y install python3-pip
+        sudo apt-get clean
+    fi
+fi
+
+# Install required python packages
+echo "Install required python packages"
+pip3 install --upgrade -r ${MASDCHOME}/bin/requirements.txt
 

@@ -16,7 +16,7 @@
 
 FROM ubuntu
 
-COPY ./docker/requirements.txt /tmp/requirements.txt
+COPY ./bin/requirements.txt /tmp/requirements.txt
 RUN apt-get update && \
     apt-get -y install vim python3-pip unzip inotify-tools net-tools openssl ca-certificates jq apache2 e2fsprogs libzstd1 libidn2-0 default-jre && \
     apt-get clean && \
