@@ -135,7 +135,7 @@ $ docker run -dit --name mas-dataingest --volume ~/volume:/root/ibm/masdc/volume
 ```
 
 
-## Configure and run data connector
+## Configure data connector
 
 Refer to data connector documentation for data connector configuration:
 
