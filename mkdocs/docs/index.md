@@ -1,6 +1,6 @@
-# IBM Maximo Application Suite - SCADA Bulk Data Ingest Connector
+# SCADA Bulk Data Ingest Connector for IBM Watson IoT
 
-This project describes steps to install and configure **Maximo Application Suuite Data Ingest Connector**. 
+This project describes steps to install and configure **SCADA Bulk Data Ingest Connector**. 
 You can install Data Connector in Docker image or as an archive file directly on an on-premise system that 
 has access to SCADA system historian. The data is extracted from historian and bulk uploded on 
 Watson IoT Platform Data Lake. The entity data in the data lake is used by 

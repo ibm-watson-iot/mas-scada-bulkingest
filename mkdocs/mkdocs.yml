@@ -1,4 +1,4 @@
-# mkdocs build -d ../docker/webapp
+# mkdocs build -d ../docs
 
 site_name: IBM Maximo Application Suite - SCADA Bulk Data Ingest Connector
 nav:

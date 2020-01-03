@@ -152,6 +152,7 @@ $ docker run -dit --name mas-dataingest --volume ~/volume:/root/ibm/masdc/volume
 
 Refer to data connector documentation for data connector configuration:
 
-https://ibm-watson-iot.github.io/mas-scada-bulkingest/
+https://github.com/ibm-watson-iot/mas-scada-bulkingest/blob/master/mkdocs/docs/index.md
+
 
 
