@@ -1,14 +1,13 @@
-#################################################################
 #
-#  Licensed Materials - Property of IBM
-#  (C) Copyright IBM Corp. 2019 All Rights Reserved.
+# *****************************************************************************
+# Copyright (c) 2019, 2020 IBM Corporation and other Contributors.
 #
-#  US Government Users Restricted Rights - Use, duplication or 
-#  disclosure restricted by GSA ADP Schedule Contract with
-#  IBM Corp.
+# All rights reserved. This program and the accompanying materials
+# are made available under the terms of the Eclipse Public License v1.0
+# which accompanies this distribution, and is available at
+# http://www.eclipse.org/legal/epl-v10.html
 #
-#################################################################
-
+# *****************************************************************************
 #
 # Makefile to build wiotp-bulkdata-ingest container using IBM lift CLI
 # for uploading bulk data exported from SCADA systems in CSV format to

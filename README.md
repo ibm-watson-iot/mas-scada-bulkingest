@@ -1,18 +1,31 @@
-# IBM Maximo Application Suite - SCADA Bulk Data Ingest Connector
+# SCADA Bulk Data Ingest Connector for IBM Watson IoT
 
-This project includes source to build an utility that can be used to bulk ingest data exported
-or extracted from SCADA historian in CSV format, to Watson IoT Platform Data Lake.
+[![Build Status](https://travis-ci.org/ibm-watson-iot/mas-scada-bulkingest.svg?branch=master)](https://travis-ci.org/ibm-watson-iot/mas-scada-bulkingest)
+[![GitHub issues](https://img.shields.io/github/issues/ibm-watson-iot/mas-scada-bulkingest.svg)](https://github.com/ibm-watson-iot/mas-scada-bulkingest/issues)
+[![GitHub](https://img.shields.io/github/license/ibm-watson-iot/mas-scada-bulkingest.svg)](https://github.com/ibm-watson-iot/mas-scada-bulkingest/blob/master/LICENSE)
 
-You can build and install bulk data connector in a Docker image or on an on-premise host system.
+This project includes source to build an utility to:
+
+* Extract data from SCADA historian in CSV format.
+* Register device type, physical and logical interfaces in Watson IoT Platform service.
+* Parse data to identify unique devices and register in Watson IoT Platform service.
+* Optionally send extracted data using MQTT protocol.
+* Transforms data based on user defined rules and bulk upload data in Watson IoT Platform Data Lake.
+
+You can build and install the data connector on an on-premise host system.
+ 
+A Docker image can be build using provided Dockerfile that defines an image that is based on Ubuntu.
+You can build and run container on any operating environment that has docker-ce
+(Docker Community Edition) environment set.  For information on Docker Community
+Edition for your operating environment, see [About Docker CE](https://docs.docker.com/install/). 
+
 
 ## Dependencies
 
-* Python 3.7 or higher
+* Python 3.X (https://www.anaconda.com/distribution/)
+
 * OpenJDK 13.0.1
 * Docker (for dockerized version)
-  You can build and run container on any operating environment that has docker-ce
-  (Docker Community Edition) environment set.  For information on Docker Community
-  Edition for your operating environment, see [About Docker CE](https://docs.docker.com/install/). 
 
 
 ## Supported Operating Environment
