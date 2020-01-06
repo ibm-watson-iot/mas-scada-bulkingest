@@ -1,4 +1,4 @@
-# SCADA Bulk Data Ingest Connector for IBM Watson IoT
+# IBM Watson IoT Bulk Data Ingest Connector for SCADA
 
 [![Build Status](https://travis-ci.com/ibm-watson-iot/mas-scada-bulkingest.svg?branch=master)](https://travis-ci.com/ibm-watson-iot/mas-scada-bulkingest)
 [![GitHub issues](https://img.shields.io/github/issues/ibm-watson-iot/mas-scada-bulkingest.svg)](https://github.com/ibm-watson-iot/mas-scada-bulkingest/issues)
