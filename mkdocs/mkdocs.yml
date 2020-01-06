@@ -1,6 +1,6 @@
 # mkdocs build -d ../docs
 
-site_name: IBM Maximo Application Suite - SCADA Bulk Data Ingest Connector
+site_name: IBM Watson IoT Bulk Data Ingest Connector for SCADA
 nav:
   - Home: 'index.md'
   - Overview: 'overview.md'

@@ -1,6 +1,6 @@
 # Overview
 
-IBM MAS Data Ingest connector lets you bulk upload historical device data from SCADA historian 
+IBM Watson IoT Data Ingest connector lets you bulk upload historical device data from SCADA historian 
 to Watson IoT Platform Data Lake. The uploaded data can be used by IBM
 Watson IoT Platform Analytics Service for visualizatiion and AI-driven analytics. 
 
