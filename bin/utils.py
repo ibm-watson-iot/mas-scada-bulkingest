@@ -112,7 +112,7 @@ def set_deviceid_field(row, idcolName, prefix, format):
         else:
             id = prefix + "_" + row[idcolName]
     else:
-        id = row[idcolName]
+        id = row[idcolName].replace(' ', '_').replace('/', '_')
     return id
 
 # Function to set int value
@@ -185,7 +185,11 @@ def normalizeDataFrame(dataPath, inputFile, config, regreq):
         if deviceType != '':
             df['deviceType'] = df[deviceType]
         else:
-            df['deviceType'] = config['client'] + "Type"
+            if 'setType' in entityData:
+                setType = entityData['setType']
+                df['deviceType'] = setType
+            else:
+                df['deviceType'] = config['client'] + "Type"
         deviceId = ''
         if 'deviceId' in entityData:
             deviceId = entityData['deviceId']
