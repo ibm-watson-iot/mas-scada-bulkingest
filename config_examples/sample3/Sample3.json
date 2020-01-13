@@ -1,0 +1,48 @@
+{
+    "client":"Cakebread",
+    "database": {
+        "sqlStatement": "select * from OakvilleTest",
+        "fetchSize": 600,
+        "insertSize": 600,
+        "scanInterval": 300
+    },
+    "tagData": {
+        "tagpath": "tagpath",
+        "tagpathParseCount": 0,
+        "tagMap": {},
+        "eventTagLevel": 1,
+        "eventColumnName": "evt_name"
+    },
+    "entityData": {
+        "deviceType": "",
+        "deviceId": "tagpath",
+        "deviceIdPrefix": "",
+        "deviceIdFormat": "",
+        "setType": "OakvilleSite",
+        "registerDevice": true
+    },
+    "eventData": {
+        "timestamp": "t_stamp",
+        "id": "",
+        "type": "datatype",
+        "value": "evt_data",
+        "consolidateTimestamp": false,
+        "ignoreTypes": [],
+        "registerInterfaces": true
+    },
+    "discardColumns": [ "dataintegrity", "id", "querymode", "created", "retired", "datatype", "scid", "tagid"  ],
+    "renameColumns": {},
+    "interfaceEvents": {
+        "intvalue": "integer",
+        "floatvalue": "number",
+        "stringvalue": "string",
+        "datevalue": "string",
+        "tagpath": "string",
+        "client": "string",
+        "evt_name": "string"
+    },
+    "interfaceRequired": [ "tagpath", "evt_name", "client" ],
+    "mqttEvents": 1,
+    "useLift": 0
+}
+
