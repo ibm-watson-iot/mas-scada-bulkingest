@@ -10,6 +10,7 @@
         "tagpath": "",
         "tagpathParseCount": 0,
         "tagMap": {},
+        "setDimensions": false,
         "eventTagLevel": 0,
         "eventColumnName": ""
     },
@@ -18,6 +19,7 @@
         "deviceId": "POWER_METER_CHANNEL",
         "deviceIdPrefix": "TestDevId",
         "deviceIdFormat": "%4d",
+        "setType": "",
         "registerDevice": true
     },
     "eventData": {
@@ -40,6 +42,7 @@
         "client": "string"
     }, 
     "interfaceRequired": [ "POWER_METER_CHANNEL", "POWER_METER_FLOOR", "POWER_METER_AREA", "POWER_METER_FACILITIES", "client" ],
-    "mqttEvents": 1
+    "mqttEvents": 1,
+    "useLift": 0
 }
 

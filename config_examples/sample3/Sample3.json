@@ -10,6 +10,7 @@
         "tagpath": "tagpath",
         "tagpathParseCount": 0,
         "tagMap": {},
+        "setDimensions": true,
         "eventTagLevel": 1,
         "eventColumnName": "evt_name"
     },

@@ -133,6 +133,11 @@ def set_float_value(row, colName):
 def set_eventid_value(row, colName, level):
     return row[colName].rsplit("/",1)[1]
 
+# Function to set dimension data field - merge device id and tagpath
+def set_dimensionData_field(row, idcolName):
+    id = str(row['deviceId']) + "#" + str(row[idcolName])
+    return id
+
 
 
 #
@@ -145,11 +150,14 @@ def normalizeDataFrame(dataPath, inputFile, config, regreq):
     df = pd.read_csv(dataPath+'/csv/'+inputFile)
 
     # process tagpath if set
+    setDimensions = False
+    tagpath = ""
     if 'tagData' in config:
         tagData = config['tagData']
-        tagpath = ""
         if 'tagpath' in tagData:
             tagpath  = tagData["tagpath"]
+        if 'setDimensions' in tagData:
+            setDimensions  = tagData["setDimensions"]
         if tagpath != "":
             # Get event from tagpath if configured
             if tagData['eventTagLevel'] > 0:
@@ -203,7 +211,10 @@ def normalizeDataFrame(dataPath, inputFile, config, regreq):
             df['deviceId'] = df.apply (lambda row: set_deviceid_field(row, deviceId, deviceIdPrefix, deviceIdFormat), axis=1)
         else:
             df['deviceId'] = config['client'] + "Id"
-         
+
+    # set dimension data column
+    if setDimensions == True and tagpath != '':
+        df['dimensionData'] = df.apply (lambda row: set_dimensionData_field(row, tagpath), axis=1)
 
     # Set event data fields
     if 'eventData' in config:
