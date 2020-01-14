@@ -61,7 +61,6 @@ public class DBConnector {
     static int batchInsertSize = 1000;
     static String customSql = "";
     static int sampleEventCount = 1;
-    static int useLift = 0;
     static Logger logger = Logger.getLogger("dataingest.extract");  
     static FileHandler fh;  
     static JSONArray collist = new JSONArray();
@@ -161,7 +160,6 @@ public class DBConnector {
             scanInterval = dbConfig.getInt("scanInterval");
             customSql = dbConfig.getString("sqlStatement");
             sampleEventCount = tableConfig.getInt("mqttEvents");
-            // useLift = tableConfig.getInt("useLift");
             batchInsertSize = dbConfig.getInt("insertSize");
             tstampColName = eventData.getString("timestamp");
            
@@ -344,8 +342,20 @@ public class DBConnector {
                 String applyDDL = "false";
                 if ( collist.length() == 0 ) {
                     if ( getDB2TableHeaders(datalake, tableName, clnFilePath) == 1 ) {
-                        logger.info("Failed to get table column names from Data Lake" + tableName);
+                        logger.info("Failed to get column names from Data Lake table " + tableName);
                         applyDDL = "true";
+                    }
+                }
+
+                // create table if needed
+                if ( applyDDL.compareTo("true") == 0 ) {
+                    if ( createTable(datalake, tableName, ddlFilePath) == 1 ) {
+                        logger.info("Failed to create table in Data Lake: table name " + tableName);
+                    } else {
+                        // get table headers from data lake
+                        if ( getDB2TableHeaders(datalake, tableName, clnFilePath) == 1 ) {
+                            logger.info("Failed to get column names from Data Lake table " + tableName);
+                        }
                     }
                 }
 
@@ -450,21 +460,19 @@ public class DBConnector {
                             logger.info("Exception during execution of action script." + e.getMessage());
                         }
                     
-                        if ( useLift == 0 ) {
-                            // Upload data using batch insert
-                            int nuploaded = 0;
-                            if (rowCount > 0 ) {
-                                nuploaded = batchInsert(datalake, tableName, ddlFilePath, prCsvFilePath);
-                            }
+                        // Upload data using batch insert
+                        int nuploaded = 0;
+                        if (rowCount > 0 ) {
+                            nuploaded = batchInsert(datalake, tableName, ddlFilePath, prCsvFilePath);
+                        }
 
-                            // oepn file to write processed data
-                            if ( nuploaded > 0 || rowCount == 0 ) {
-                                fw = new FileWriter(prcFilePath);
-                                String procRec = "{ \"processed\":" + nuploaded + ", \"uploaded\":\"Y\" }";
-                                fw.write(procRec);
-                                fw.flush();
-                                fw.close();
-                            }
+                        // oepn file to write processed data
+                        if ( nuploaded > 0 || rowCount == 0 ) {
+                            fw = new FileWriter(prcFilePath);
+                            String procRec = "{ \"processed\":" + nuploaded + ", \"uploaded\":\"Y\" }";
+                            fw.write(procRec);
+                            fw.flush();
+                            fw.close();
                         }
                     }
         
@@ -529,6 +537,18 @@ public class DBConnector {
                     }
                 }
 
+                // create table if needed
+                if ( applyDDL.compareTo("true") == 0 ) {
+                    if ( createTable(datalake, tableName, ddlFilePath) == 1 ) {
+                        logger.info("Failed to create table in Data Lake: table name " + tableName);
+                    } else {
+                        // get table headers from data lake
+                        if ( getDB2TableHeaders(datalake, tableName, clnFilePath) == 1 ) {
+                            logger.info("Failed to get column names from Data Lake table " + tableName);
+                        }
+                    }
+                }
+
                 String[] command ={pythonPath, scriptPath, tableName, applyDDL}; 
                 logger.info("Execute action script: " + scriptPath);
                 ProcessBuilder pb = new ProcessBuilder(command);
@@ -541,11 +561,8 @@ public class DBConnector {
                     logger.info("Exception during execution of action script." + e.getMessage());
                 }
 
-                if ( useLift == 0 ) {
-                    // Upload data using batch insert
-                    batchInsert(datalake, tableName, ddlFilePath, prCsvFilePath);
-                }
-
+                // Upload data using batch insert
+                batchInsert(datalake, tableName, ddlFilePath, prCsvFilePath);
             }
 
             logger.info("Data processing cycle is complete.");
@@ -609,10 +626,9 @@ public class DBConnector {
             con.commit();
             con.close();
         }
-
         catch (Exception ex) {
             logger.info("Exception information:");
-            while (ex != null) {
+            if (ex != null) {
                 logger.info("Error msg: " + ex.getMessage());
             }
             retval = 1;
@@ -621,6 +637,47 @@ public class DBConnector {
         return retval;
     }
 
+    // Create table in WIoTP Data Lake (DB2)
+    private static int createTable(JSONObject datalake, String tableName, String ddlFilePath) {
+        Connection con;
+        Statement stmt;
+        ResultSet rs;
+        int retval = 0;
+        
+        try {
+            Class.forName("com.ibm.db2.jcc.DB2Driver");
+            
+            JSONObject obj = new JSONObject();
+
+            // Get data lake config items
+            String host = (String)datalake.get("host");
+            String port = (String)datalake.get("port");
+            String user = (String)datalake.get("user");
+            String password = (String)datalake.get("password");
+            String urlSSL = "jdbc:db2://" + host + ":" + port + "/BLUDB:sslConnection=true;";
+            String colTitle;
+
+            logger.info("Create table " + tableName);
+            con = DriverManager.getConnection(urlSSL, user, password);
+            con.setAutoCommit(false);
+            stmt = con.createStatement();
+            String sql = new String ( Files.readAllBytes( Paths.get(ddlFilePath) ) );
+            logger.info("SQL: " + sql);
+            stmt.executeUpdate(sql);
+            stmt.close();
+            con.commit();
+            con.close();
+        }
+        catch (Exception ex) {
+            logger.info("Exception information:");
+            if (ex != null) {
+                logger.info("Error msg: " + ex.getMessage());
+            }
+            retval = 1;
+        }
+
+        return retval;
+    }
 
     // Batch insert in WIoTP Data Lake (DB2) from CSV file
     private static int batchInsert(JSONObject datalake, String tableName, String ddlFilePath, String prCsvFilePath) {
