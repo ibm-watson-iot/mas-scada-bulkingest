@@ -42,7 +42,6 @@
         "client": "string"
     }, 
     "interfaceRequired": [ "POWER_METER_CHANNEL", "POWER_METER_FLOOR", "POWER_METER_AREA", "POWER_METER_FACILITIES", "client" ],
-    "mqttEvents": 1,
-    "useLift": 0
+    "mqttEvents": 1
 }
 

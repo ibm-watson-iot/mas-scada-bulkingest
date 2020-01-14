@@ -43,7 +43,6 @@
         "evt_name": "string"
     },
     "interfaceRequired": [ "tagpath", "evt_name", "client" ],
-    "mqttEvents": 1,
-    "useLift": 0
+    "mqttEvents": 1
 }
 

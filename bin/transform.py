@@ -26,6 +26,7 @@ import logging
 import sys, subprocess
 import os
 from os import path
+import requests
 
 userHome = str(Path.home())
 defaultDir = userHome + "/ibm/masdc"
@@ -64,6 +65,8 @@ def transformInputCSV(dataPath, interfaceId, inputFile, outputFile, type, conncf
     
     # Add dimensions
     addDimensions(type, conncfg, config, df)
+    discardColumn = [ 'dimensionData' ]
+    df = df.drop(discardColumn, axis=1)
     
     # If events are sent using mqtt then return df
     if config['mqttEvents'] == -1:
@@ -249,13 +252,11 @@ def addDimensions(type, conncfg, config, df):
             payload.append(item)
 
     if len(payload) > 0:
-        # print(json.dumps(payload))
+        logger.info(json.dumps(payload))
         logger.info("Invoke API to create dimensions.")
         response = requests.post(url, data=json.dumps(payload), params={'blocking': 'true', 'result': 'true'}, headers=headers)
-        logger.info(response)
-
-    discardColumn = [ 'dimensionData' ]
-    df = df.drop(discardColumn, axis=1)
+        logger.info(response.status_code)
+        logger.info(response.text)
 
 
 #
