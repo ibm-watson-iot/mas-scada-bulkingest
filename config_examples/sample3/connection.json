@@ -12,7 +12,9 @@
     "wiotp": {
         "orgId": "xxxxxx",
 	"key": "a-xxxxxx-g4rluxdyb6",
-        "token" : "U21ekzDH_n?-pYLPCO"
+        "token" : "U21ekzDH_n?-pYLPCO",
+        "tenantId": "xxxxxxxx",
+        "geo": "test"
     },
     "datalake": {
         "dbtype": "Db2Warehouse",

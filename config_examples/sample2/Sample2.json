@@ -10,6 +10,7 @@
         "tagpath": "tagpath",
         "tagpathParseCount": 0,
         "tagMap": {},
+        "setDimensions": true,
         "eventTagLevel": 1,
         "eventColumnName": "evt_name"
     },
@@ -18,6 +19,7 @@
         "deviceId": "tagid",
         "deviceIdPrefix": "SampleId",
         "deviceIdFormat": "%4d",
+        "setType": "CBCellars",
         "registerDevice": true
     },
     "eventData": {
@@ -42,6 +44,7 @@
         "client": "string"
     }, 
     "interfaceRequired": [ "tagid", "tagpath", "evt_name", "client" ],
-    "mqttEvents": 1
+    "mqttEvents": 1,
+    "useLift": 0
 }
 

@@ -352,6 +352,7 @@ public class DBConnector {
                 // retrieve records
                 String limitStr = "";
                 long t_stamp = 0;
+                long l_t_stamp  = 0;
                 int nRows = 0;
                 while ( getNextChunk ) {
                     // Set limit and offset
@@ -393,9 +394,9 @@ public class DBConnector {
     
                     // move to last row and get time stamp value
                     rs.last();
-                    t_stamp = rs.getLong(tstampColName);
+                    l_t_stamp = rs.getLong(tstampColName);
                     nRows = rs.getRow();
-                    String emsg = String.format("RowsExtracted: %d Last_tTtamp: %d", nRows, t_stamp);
+                    String emsg = String.format("RowsExtracted: %d Last_tTtamp: %d", nRows, l_t_stamp);
                     logger.info(emsg);
                     rs.first();
                     
@@ -410,7 +411,7 @@ public class DBConnector {
                     // For each row, loop thru the number of columns and write to the csv file
                     int rowCount = 0;
                     while (rs.next()) {
-                        if ( rs.getLong(tstampColName) < t_stamp) {
+                        if ( rs.getLong(tstampColName) < l_t_stamp) {
                             for (int i = 1; i <= colunmCount; i++) {
                                 if (rs.getObject(i) != null) {
                                     String data = rs.getObject(i).toString();
@@ -498,7 +499,7 @@ public class DBConnector {
     
                     // oepn file to write offset location
                     fw = new FileWriter(offFilePath);
-                    String offsetRec = "{ \"startRow\":" + startRow + ", \"t_stamp\":" + t_stamp + " }";
+                    String offsetRec = "{ \"startRow\":" + startRow + ", \"t_stamp\":" + l_t_stamp + " }";
                     fw.write(offsetRec);
                     fw.flush();
                     fw.close();

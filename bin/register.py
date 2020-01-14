@@ -30,6 +30,7 @@ from pathlib import Path
 import sys, subprocess
 import os
 import time
+import requests
 
 
 userHome = str(Path.home())
@@ -114,6 +115,69 @@ def addDevices(type, conncfg, df):
             logger.info(result)
         except Exception as e:
             logger.info("Failed to add device: " + str(e))
+
+
+#
+# Add dimensions
+#
+def addDimensions(type, conncfg, config, df):
+    # check if setDimensions is enabled
+    setDimensions = False
+    tagpath = ''
+    if 'tagData' in config:
+        tagData = config['tagData']
+        if 'setDimensions' in tagData:
+            setDimensions = tagData['setDimensions']
+            tagpath = tagData['tagpath']
+    if setDimensions == False or tagpath == '':
+        return
+
+    # Get parameters from config object
+    deviceType = type
+    wiotp = conncfg['wiotp']
+    key = wiotp["key"]
+    token = wiotp["token"]
+    tenantId = wiotp["tenantId"]
+    geo = wiotp["geo"]
+
+    host = 'https://api-' + geo + '.connectedproducts.internetofthings.ibmcloud.com/api/master/v1/' + tenantId
+    api = '/entity/type/' + type + '/categorical'
+    url = host + api
+    logger.info("URL to register dimensions data: " + url)
+
+    headers = {}
+    headers['Content-Type'] = 'application/json'
+    headers['x-api-key'] = key
+    headers['x-api-token'] = token
+
+    payload = []
+
+    print(df['dimensionData'])
+
+    dids = df['dimensionData'].unique().tolist()
+    for did in dids:
+        dimData = did.split("#")
+        idname = dimData[0]
+        tpath = dimData[1]
+        dims = tpath.split("/")
+        for i in range(len(dims)):
+            dimname = "LEVEL_" + str(i)
+            dimvalue = dims[i]
+            # print(idname, dimname, dimvalue)
+            item = {}
+            item['id'] = idname
+            item['name'] = dimname
+            item['value'] = dimvalue
+            payload.append(item)
+
+    if len(payload) > 0:
+        # print(json.dumps(payload))
+        logger.info("Invoke API to create dimensions.")
+        response = requests.post(url, data=json.dumps(payload), params={'blocking': 'true', 'result': 'true'}, headers=headers)
+        logger.info(response)
+
+    discardColumn = [ 'dimensionData' ]
+    df = df.drop(discardColumn, axis=1)
 
 
 #
@@ -546,6 +610,7 @@ if __name__ == "__main__":
         addDevices(type, conncfg, df)
         logicalInterfaceId = configureInterfaces(type, conncfg, dataPath, useDeviceId)
         logger.info("Configured Logical Interface ID: " + logicalInterfaceId)
+        addDimensions(type, conncfg, config, df)
 
     # Send sample event
     if logicalInterfaceId != "": 

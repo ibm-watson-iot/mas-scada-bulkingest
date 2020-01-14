@@ -62,6 +62,9 @@ def transformInputCSV(dataPath, interfaceId, inputFile, outputFile, type, conncf
     # Add devices if not registered yet
     addDevices(type, conncfg, df)
     
+    # Add dimensions
+    addDimensions(type, conncfg, config, df)
+    
     # If events are sent using mqtt then return df
     if config['mqttEvents'] == -1:
         rowsProcessed = len(df)
@@ -191,6 +194,68 @@ def addDevices(type, conncfg, df):
             logger.info(result)
         except Exception as e:
             logger.info("Failed to add device: " + str(e))
+
+
+
+#
+# Add dimensions
+#
+def addDimensions(type, conncfg, config, df):
+    # check if setDimensions is enabled
+    setDimensions = False
+    tagpath = ''
+    if 'tagData' in config:
+        tagData = config['tagData']
+        if 'setDimensions' in tagData:
+            setDimensions = tagData['setDimensions']
+            tagpath = tagData['tagpath']
+    if setDimensions == False or tagpath == '':
+        return
+
+    # Get parameters from config object
+    deviceType = type
+    wiotp = conncfg['wiotp']
+    key = wiotp["key"]
+    token = wiotp["token"]
+    tenantId = wiotp["tenantId"]
+    geo = wiotp["geo"]
+
+    host = 'https://api-' + geo + '.connectedproducts.internetofthings.ibmcloud.com/api/master/v1/' + tenantId
+    api = '/entity/type/' + type + '/categorical'
+    url = host + api
+    logger.info("URL to register dimensions data: " + url)
+
+    headers = {}
+    headers['Content-Type'] = 'application/json'
+    headers['x-api-key'] = key
+    headers['x-api-token'] = token
+
+    payload = []
+
+    dids = df['dimensionData'].unique().tolist()
+    for did in dids:
+        dimData = did.split("#")
+        idname = dimData[0]
+        tpath = dimData[1]
+        dims = tpath.split("/")
+        for i in range(len(dims)):
+            dimname = "LEVEL_" + str(i)
+            dimvalue = dims[i]
+            # print(dimname, dimvalue)
+            item = {}
+            item['id'] = idname
+            item['name'] = dimname
+            item['value'] = dimvalue
+            payload.append(item)
+
+    if len(payload) > 0:
+        # print(json.dumps(payload))
+        logger.info("Invoke API to create dimensions.")
+        response = requests.post(url, data=json.dumps(payload), params={'blocking': 'true', 'result': 'true'}, headers=headers)
+        logger.info(response)
+
+    discardColumn = [ 'dimensionData' ]
+    df = df.drop(discardColumn, axis=1)
 
 
 #
