@@ -45,6 +45,7 @@ public class DBConnector {
     static String prcFilePath = "";
     static String offFilePath = "";
     static String clnFilePath = "";
+    static String smpFilePath = "";
     static String prCsvFilePath = "";
     static String ddlFilePath = "";
     static String pythonPath = "";
@@ -57,8 +58,8 @@ public class DBConnector {
     static String insertSQL = "";
     static String sortStr = "";
     static int chunkSize = 50000;
-    static int scanInterval = 300;
-    static int batchInsertSize = 1000;
+    static int scanInterval = 120;
+    static int batchInsertSize = 10000;
     static String customSql = "";
     static int sampleEventCount = 1;
     static Logger logger = Logger.getLogger("dataingest.extract");  
@@ -168,11 +169,18 @@ public class DBConnector {
             prcFilePath = dataDir + "/volume/data/" + tableName + "/data/.processed";
             offFilePath = dataDir + "/volume/data/" + tableName + "/data/.dataOffset";
             clnFilePath = dataDir + "/volume/data/" + tableName + "/schemas/" + tableName + ".dcols";
+            smpFilePath = dataDir + "/volume/data/" + tableName + "/schemas/.sampleEventSent";
             prCsvFilePath = dataDir + "/volume/data/" + tableName + "/data/" + tableName + ".csv";
             ddlFilePath = dataDir + "/volume/data/" + tableName + "/schemas/" + tableName + ".ddl";
           
             // Extract sample data, identify entiries and register with WIoTP
-            register();
+            // skip if smpFilePath exist
+            File smpSendFile = new File(smpFilePath);
+            if ( smpSendFile.exists()) {
+                logger.info("Skip registration - sample send file exists.");
+            } else {
+                register();
+            }
 
             // Extract data, and upload to data lake
             upload(datalake);
@@ -421,7 +429,7 @@ public class DBConnector {
                     // For each row, loop thru the number of columns and write to the csv file
                     int rowCount = 0;
                     while (rs.next()) {
-                        if ( rs.getLong(tstampColName) < l_t_stamp) {
+                        // if ( rs.getLong(tstampColName) < l_t_stamp) {
                             for (int i = 1; i <= colunmCount; i++) {
                                 if (rs.getObject(i) != null) {
                                     String data = rs.getObject(i).toString();
@@ -434,7 +442,7 @@ public class DBConnector {
                             }
                             fw.append(System.getProperty("line.separator"));
                             rowCount += 1;
-                        }
+                        // }
                     }
                     fw.flush();
                     fw.close();
