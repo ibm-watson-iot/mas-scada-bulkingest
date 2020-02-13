@@ -214,6 +214,7 @@ def addDimensions(type, conncfg, config, df):
             tagpath = tagData['tagpath']
     if setDimensions == False or tagpath == '':
         return
+    client = config['client']
 
     # Get parameters from config object
     deviceType = type
@@ -240,6 +241,19 @@ def addDimensions(type, conncfg, config, df):
         dimData = did.split("#")
         idname = dimData[0]
         tpath = dimData[1]
+        # Add Client as dimension data
+        siteitem = {}
+        siteitem['id'] = idname
+        siteitem['name'] = "CLIENT"
+        siteitem['value'] = client
+        payload.append(siteitem)
+        # Add complete tagpath as dimension data
+        tagpathitem = {}
+        tagpathitem['id'] = idname
+        tagpathitem['name'] = "TAGPATH"
+        tagpathitem['value'] = tpath
+        payload.append(tagpathitem)
+        # Parse tagpath and add all leaves of tagpath as dimension data
         dims = tpath.split("/")
         for i in range(len(dims)):
             dimname = "LEVEL_" + str(i)
