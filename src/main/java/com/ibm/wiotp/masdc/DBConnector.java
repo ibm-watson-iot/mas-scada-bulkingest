@@ -179,6 +179,9 @@ public class DBConnector {
             if ( smpSendFile.exists()) {
                 logger.info("Skip registration - sample send file exists.");
             } else {
+                int norows = getnorows();
+                String msg1 = String.format("Number of records in source database: %d\n", norows);
+                logger.info(msg1);
                 register();
             }
 
@@ -206,18 +209,12 @@ public class DBConnector {
     }
 
 
-    // Extract sample data and configure/register WIoTP
-    private static void register() {
-
-        FileWriter fw;
+    // Get number of rows in source database
+    private static int getnorows() {
         Connection conn = null;
         Statement stmt = null;
-
+        int numRows = 0;
         try {
-            // Check for script action
-            boolean useChunk = false;
-            String scriptPath = installDir + "/bin/register.py";
-
             if ( dbType.compareTo("none") != 0 ) {
                 // DB connection
                 logger.info("Connecting to database to extract data from " + tableName);
@@ -232,23 +229,77 @@ public class DBConnector {
                     conn = DriverManager.getConnection(DB_URL);
                     type = 2;
                 }
-    
+
+                String sqlStr = "";
                 stmt = conn.createStatement();
-    
-                // retrieve records
-                String limitStr = "";
-                int startRow = 1;
-                int cSize = 5;
-                if ( type == 1 ) {
-                    limitStr = " limit " + startRow + "," + cSize;
+
+                // get number of rows in the table
+                String [] tmpParts = customSql.split(" ");
+                String fromStr = "";
+                for (int i=0; i<tmpParts.length; i++) {
+                    String tmpstr = tmpParts[i];
+                    if (tmpstr.compareTo("from") == 0) {
+                        fromStr = tmpParts[i+1];
+                        sqlStr = "select count(*) from " + fromStr;
+                        ResultSet rs = stmt.executeQuery(sqlStr);
+                        while(rs.next()) {
+                            numRows = rs.getInt("count(*)");
+                        }
+                        rs.close();
+                        break;
+                    }
+                }
+
+                stmt.close();
+                conn.close();
+            }
+        } catch (Exception ex) {
+            logger.info("Exception information: " + ex.getMessage());
+        }
+        return numRows;
+    }
+
+
+    // Extract sample data and configure/register WIoTP
+    private static void register() {
+
+        FileWriter fw;
+        Connection conn = null;
+        Statement stmt = null;
+
+        try {
+            // Check for script action
+            boolean useChunk = false;
+            String scriptPath = installDir + "/bin/register.py";
+
+            if (dbType.compareTo("none") != 0) {
+                // DB connection
+                logger.info("Connecting to database to extract data from " + tableName);
+                boolean getNextChunk = true;
+                int type = 1;
+                String DB_URL = "jdbc:sqlserver://"+sourceHost+":"+sourcePort+";databaseName="+sourceDatabase+";user="+
+                    sourceUser+";password="+sourcePassword;
+                if ( dbType.compareTo("mysql") == 0 ) {
+                    DB_URL = "jdbc:mysql://" + sourceHost + "/" + sourceSchema;
+                    conn = DriverManager.getConnection(DB_URL, sourceUser, sourcePassword);
                 } else {
-                    limitStr = " OFFSET " + startRow +
-                           " ROWS FETCH NEXT " + cSize + " ROWS ONLY";
+                    conn = DriverManager.getConnection(DB_URL);
+                    type = 2;
+                }
+    
+                String sqlStr = "";
+                ResultSet rs;
+                stmt = conn.createStatement();
+
+                // retrieve one record
+                if ( type == 1 ) {
+                    sqlStr = customSql + " limit 1,1";
+                } else {
+                    sqlStr = customSql + " OFFSET 1 ROWS FETCH NEXT 1 ROWS ONLY";
                 }
      
-                ResultSet rs;
-                logger.info("SQL: " + customSql + limitStr);
-                rs = stmt.executeQuery(customSql + limitStr);
+                logger.info("SQL: " + sqlStr);
+                rs = stmt.executeQuery(sqlStr);
     
                 // Get column count                
                 final ResultSetMetaData rsmd = rs.getMetaData();
