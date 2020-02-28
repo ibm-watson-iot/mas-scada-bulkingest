@@ -232,10 +232,6 @@ def normalizeDataFrame(dataPath, inputFile, config, regreq):
         if evtId != '':
             df['EVENTID'] = df[evtId]
 
-
-    # Set client
-    df['client'] = config['client']
-
     # Process discardColumns
     discardColumns = config['discardColumns']
     df = df.drop(discardColumns, axis=1)

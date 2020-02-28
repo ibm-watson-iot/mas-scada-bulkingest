@@ -65,7 +65,7 @@ def transformInputCSV(dataPath, interfaceId, inputFile, outputFile, type, conncf
     
     # Add dimensions
     addDimensions(type, conncfg, config, df)
-    discardColumn = [ 'dimensionData' ]
+    discardColumn = [ 'dimensionData', 'tagpath', 'client' ]
     df = df.drop(discardColumn, axis=1)
     
     # If events are sent using mqtt then return df
@@ -242,17 +242,16 @@ def addDimensions(type, conncfg, config, df):
         idname = dimData[0]
         tpath = dimData[1]
         # Add Client as dimension data
-        siteitem = {}
-        siteitem['id'] = idname
-        siteitem['name'] = "CLIENT"
-        siteitem['value'] = client
-        payload.append(siteitem)
+        item = {}
+        item['id'] = idname
+        item['name'] = "CLIENT"
+        item['value'] = client
+        payload.append(item)
         # Add complete tagpath as dimension data
-        tagpathitem = {}
-        tagpathitem['id'] = idname
-        tagpathitem['name'] = "TAGPATH"
-        tagpathitem['value'] = tpath
-        payload.append(tagpathitem)
+        item['id'] = idname
+        item['name'] = "TAGPATH"
+        item['value'] = tpath
+        payload.append(item)
         # Parse tagpath and add all leaves of tagpath as dimension data
         dims = tpath.split("/")
         for i in range(len(dims)):
