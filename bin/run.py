@@ -15,6 +15,7 @@
 #
 
 import os
+import json
 from pathlib import Path
 import logging
 import sys
@@ -110,6 +111,21 @@ if __name__ == "__main__":
     print("Start processing cycle for entity " + dtype)
     logger.info("Start processing cycle for entity %s", dtype)
 
+    # Get scanInterval from dtype configuration file
+    tableCfgPath = dataDir + "/volume/config/" + dtype + ".json"
+    config = {}
+    with open(tableCfgPath) as configFD:
+        config = json.load(configFD)
+        logger.info("Read entity type config items")
+        configFD.close()
+
+    scanInterval = 120
+    dbconfig = config['database']
+    if 'scanInterval' in dbconfig:
+        scanInterval = dbconfig['scanInterval']
+    if scanInterval <= 0:
+        scanInterval = 120
+
     retval = 0
     while retval == 0:
         dtypeProFile = dataDir + "/volume/config/" + dtype + ".running"
@@ -117,7 +133,7 @@ if __name__ == "__main__":
             if path.exists(dtypeProFile) == True:
                 print("Entity " + dtype + " processing is in locked state")
                 print("If you want to restart, stop this process and use restart option, to unlock and start")
-                time.sleep(120)
+                time.sleep(scanInterval)
                 continue
 
         print("Start next cycle ...")
@@ -138,5 +154,5 @@ if __name__ == "__main__":
         logger.info("Start process for dtype: %s", dtype)
         os.system(command)
 
-        time.sleep(120)
+        time.sleep(scanInterval)
 
