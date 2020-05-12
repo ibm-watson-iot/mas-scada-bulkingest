@@ -1,0 +1,27 @@
+{
+    "scada": {
+        "dbtype": "none",
+        "host": "127.0.0.1",
+        "port": "3306",
+	"database": "scadadata",
+        "schema": "scadadata",
+        "user": "root",
+        "password": "xxxxxxxx",
+	"ssl": "false"
+    },
+    "wiotp": {
+        "orgId": "xxxxxx",
+	"key": "a-xxxxxx-g4rluxdyb6",
+        "token" : "U21ekzDH_n?-pYLPCO",
+        "tenantId": "xxxxxxxx",
+        "geo": "us"
+    },
+    "datalake": {
+        "dbtype": "Db2Warehouse",
+        "host": "db2w-xxxxxxx.us-south.db2w.cloud.ibm.com",
+        "port": "50001",
+        "schema": "BLUADMIN",
+        "user": "bluadmin",
+        "password": "9_OMb5ukoU9ZTNaq5LUIsfj@X2QwM"
+    }
+}

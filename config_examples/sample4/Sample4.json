@@ -1,0 +1,49 @@
+{
+    "client": "TestUser",
+    "database": {
+        "sqlStatement": "select * from sqlt_data_1_2020_04 as data, sqlth_te as tag where data.tagid = tag.id order by t_stamp ASC",
+        "fetchSize": 50000,
+        "insertSize": 10000,
+        "scanInterval": 120,
+        "tableNameChangeDate": 1,
+        "sqlStatementFormat": "select * from sqlt_data_1_%Y_%m as data, sqlth_te as tag where data.tagid = tag.id order by t_stamp ASC"
+    },
+    "tagData": {
+        "tagpath": "tagpath",
+        "tagpathParseCount": 0,
+        "tagMap": {},
+        "setDimensions": true,
+        "eventTagLevel": 0,
+        "eventColumnName": "evt_name"
+    },
+    "entityData": {
+        "deviceType": "",
+        "deviceId": "tagid",
+        "deviceIdPrefix": "JPVId",
+        "deviceIdFormat": "%4d",
+        "setType": "CakebreadType",
+        "registerDevice": true
+    },
+    "eventData": {
+        "timestamp": "t_stamp",
+        "id": "",
+        "type": "datatype",
+        "value": "evt_data",
+        "consolidateTimestamp": false,
+        "ignoreTypes": [],
+        "registerInterfaces": true
+    },
+    "discardColumns": [ "dataintegrity", "id", "querymode", "created", "retired", "datatype", "scid", "tagpath" ],
+    "renameColumns": {},
+    "interfaceEvents": {
+        "tagid": "integer",
+        "intvalue": "integer",
+        "floatvalue": "number",
+        "stringvalue": "string",
+        "datevalue": "string",
+        "evt_name": "string"
+    }, 
+    "interfaceRequired": [ "tagid", "evt_name" ],
+    "mqttEvents": 1
+}
+
