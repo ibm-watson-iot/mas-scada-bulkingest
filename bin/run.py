@@ -21,6 +21,7 @@ import logging
 import sys
 import time
 from os import path
+from datetime import date
 
 logger = logging.getLogger('dataingest')
 
@@ -120,7 +121,15 @@ if __name__ == "__main__":
         configFD.close()
 
     scanInterval = 120
+    tableNameChangeDate = 0
+    sqlStatementFormat = ''
     dbconfig = config['database']
+    if 'tableNameChangeDate' in dbconfig:
+        tableNameChangeDate = dbconfig['tableNameChangeDate']
+        if tableNameChangeDate < 0 or tableNameChangeDate > 31:
+            tableNameChangeDate = 0
+    if 'sqlStatementFormat' in dbconfig:
+        sqlStatementFormat = dbconfig['sqlStatementFormat']
     if 'scanInterval' in dbconfig:
         scanInterval = dbconfig['scanInterval']
     if scanInterval <= 0:
@@ -128,6 +137,13 @@ if __name__ == "__main__":
 
     retval = 0
     while retval == 0:
+        today = date.today()
+        if tableNameChangeDate != 0:
+            dbconfig['sqlStatement'] = today.strftime(sqlStatementFormat)
+            configFD = open(tableCfgPath, "r+")
+            configFD.write(json.dumps(config, indent=4))
+            configFD.close()
+
         dtypeProFile = dataDir + "/volume/config/" + dtype + ".running"
         if runtype == 'start':
             if path.exists(dtypeProFile) == True:
