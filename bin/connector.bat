@@ -11,7 +11,7 @@ REM http://www.eclipse.org/legal/epl-v10.html
 REM (C) Copyright IBM Corp. 2019  All Rights Reserved.
 REM
 
-set DI_HOME='C:\Program Files\IBM\masdc'
+set DI_HOME="C:\Program Files\IBM\masdc"
 set DI_BIN=%DI_HOME%\bin
 set DI_LIB=%DI_HOME%\lib
 

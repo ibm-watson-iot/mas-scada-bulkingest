@@ -23,10 +23,11 @@
 
 import os
 import json
-from pathlib import Path
+import pathlib
 import logging
 import sys
 import time
+from pathlib import Path
 from os import path
 from datetime import date
 
@@ -67,6 +68,13 @@ if __name__ == "__main__":
     installDir = os.getenv('IBM_DATAINGEST_INSTALL_DIR', defaultDir)
     dataDir = os.getenv('IBM_DATAINGEST_DATA_DIR', defaultDir)
 
+    # Create directories
+    dirperm = 0o755
+    retval = createDir(dataDir, "volume", dirperm)
+    retval += createDir(dataDir, "volume/logs", dirperm)
+    retval += createDir(dataDir, "volume/config", dirperm)
+    retval += createDir(dataDir, "volume/data", dirperm)
+
     # entity config file
     alarmDataFile = dataDir + "/volume/config/alarm.dat"
     foundFile = 0
@@ -87,10 +95,7 @@ if __name__ == "__main__":
             time.sleep(15)
 
 
-    # Create log directories
-    dirperm = 0o755
-    retval = createDir(dataDir, "volume", dirperm)
-    retval += createDir(dataDir, "volume/logs", dirperm)
+    # Create log directorie
     retval += createDir(dataDir, "volume/logs/"+atype, dirperm)
 
     # set log dir

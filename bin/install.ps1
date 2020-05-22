@@ -10,6 +10,11 @@
 #
 # Windows Powershell Script to install IBM MAS Data Connector on Windows Servers
 #
+# To run this script, you need Admin priviledges. Open a Windows command propmt
+# with Admin privilege and run the following command:
+#
+# c:> powershell.exe -ExecutionPolicy Bypass .\bin\install.ps1
+#
 
 # Update these variables if required
 $InstallPath = "C:\Program Files\IBM\masdc"
@@ -84,12 +89,12 @@ if(!(Test-Path $path))
 Write-Host "Creating Data directory $DataPath"
 if(!(Test-Path $DataPath))
 {
-    New-Item -Path '$DataPath' -ItemType Directory
+    New-Item -Path "$DataPath" -ItemType Directory
 }
 
 # Set Environment variables
-[System.Environment]::SetEnvironmentVariable('IBM_DATAINGEST_INSTALL_DIR', '$InstallPath',[System.EnvironmentVariableTarget]::Machine)
-[System.Environment]::SetEnvironmentVariable('IBM_DATAINGEST_DATA_DIR', '$DataPath',[System.EnvironmentVariableTarget]::Machine)
+[System.Environment]::SetEnvironmentVariable('IBM_DATAINGEST_INSTALL_DIR', $InstallPath,[System.EnvironmentVariableTarget]::Machine)
+[System.Environment]::SetEnvironmentVariable('IBM_DATAINGEST_DATA_DIR', $DataPath,[System.EnvironmentVariableTarget]::Machine)
 
 
 # Set service to extract entity data
