@@ -3,7 +3,7 @@
 # IBM Maximo Application Suite - SCADA Bulk Data Ingest Connector
 #
 # *****************************************************************************
-# Copyright (c) 2019 IBM Corporation and other Contributors.
+# Copyright (c) 2020 IBM Corporation and other Contributors.
 #
 # All rights reserved. This program and the accompanying materials
 # are made available under the terms of the Eclipse Public License v1.0
@@ -11,9 +11,14 @@
 # http://www.eclipse.org/legal/epl-v10.html
 # *****************************************************************************
 #
-# WIoTP Bulk Data Ingest run script
+# Script to run device data extraction loop from SCADA historian and 
+# Upload to IBM MAS Datalake.
 #
-# TODO: This script is not used on windows. Revisit if this script can be removed.
+# Extraction loop depends on existence of the following file
+# IBM_DATAINGEST_DATA_DIR/volume/config/entity.dat
+#
+# This file should contain configuration file name for the entity type.
+# For example CakebreadType.json
 #
 
 import os
@@ -56,23 +61,31 @@ def createDir(dataDir, dirname, permission):
 #
 if __name__ == "__main__":
 
-    # Command line options
-    try:
-        dtype = sys.argv[1]
-    except IndexError:
-        print("ERROR: Entity Type is not specified")
-        print("Usage: connector <entity_type> [start|restart]")
-        exit(1)
-
-    try:
-        runtype = sys.argv[2]
-    except IndexError:
-        runtype='start'
-
+    runtype='restart'
     userHome = str(Path.home())
     defaultDir = userHome + "/ibm/masdc"
     installDir = os.getenv('IBM_DATAINGEST_INSTALL_DIR', defaultDir)
     dataDir = os.getenv('IBM_DATAINGEST_DATA_DIR', defaultDir)
+
+    # entity config file
+    entityDataFile = dataDir + "/volume/config/entity.dat"
+    foundFile = 0
+    dtype = ""
+    while foundFile == 0:
+        file = pathlib.Path(entityDataFile)
+        if file.exists():
+            fp = open(entityDataFile, 'r')
+            try:
+                line = line = fp.readline()
+                dtype = line.strip()
+                foundFile = 1
+            except:
+                print("Invalid entity data file") 
+            fp.close()
+        else:
+            runtype='start'
+            time.sleep(15)
+
 
     # Create log directories
     dirperm = 0o755

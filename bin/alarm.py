@@ -3,7 +3,7 @@
 # IBM Maximo Application Suite - SCADA Bulk Data Ingest Connector
 #
 # *****************************************************************************
-# Copyright (c) 2019 IBM Corporation and other Contributors.
+# Copyright (c) 2020 IBM Corporation and other Contributors.
 #
 # All rights reserved. This program and the accompanying materials
 # are made available under the terms of the Eclipse Public License v1.0
@@ -11,9 +11,14 @@
 # http://www.eclipse.org/legal/epl-v10.html
 # *****************************************************************************
 #
-# WIoTP Bulk Data Ingest run script
+# Script to run alarm data extraction loop from SCADA historian and 
+# Upload to IBM MAS Datalake.
 #
-# TODO: This script is not used on windows. Revisit if this script can be removed.
+# Extraction loop depends on existence of the following file
+# IBM_DATAINGEST_DATA_DIR/volume/config/alarm.dat
+#
+# This file should contain configuration file name for the entity type.
+# For example CakebreadAlarmType.json
 #
 
 import os
@@ -56,32 +61,40 @@ def createDir(dataDir, dirname, permission):
 #
 if __name__ == "__main__":
 
-    # Command line options
-    try:
-        dtype = sys.argv[1]
-    except IndexError:
-        print("ERROR: Entity Type is not specified")
-        print("Usage: connector <entity_type> [start|restart]")
-        exit(1)
-
-    try:
-        runtype = sys.argv[2]
-    except IndexError:
-        runtype='start'
-
+    runtype='restart'
     userHome = str(Path.home())
     defaultDir = userHome + "/ibm/masdc"
     installDir = os.getenv('IBM_DATAINGEST_INSTALL_DIR', defaultDir)
     dataDir = os.getenv('IBM_DATAINGEST_DATA_DIR', defaultDir)
 
+    # entity config file
+    alarmDataFile = dataDir + "/volume/config/alarm.dat"
+    foundFile = 0
+    atype = ""
+    while foundFile == 0:
+        file = pathlib.Path(alarmDataFile)
+        if file.exists():
+            fp = open(alarmDataFile, 'r')
+            try:
+                line = line = fp.readline()
+                atype = line.strip()
+                foundFile = 1
+            except:
+                print("Invalid alarm data file") 
+            fp.close()
+        else:
+            runtype='start'
+            time.sleep(15)
+
+
     # Create log directories
     dirperm = 0o755
     retval = createDir(dataDir, "volume", dirperm)
     retval += createDir(dataDir, "volume/logs", dirperm)
-    retval += createDir(dataDir, "volume/logs/"+dtype, dirperm)
+    retval += createDir(dataDir, "volume/logs/"+atype, dirperm)
 
     # set log dir
-    logdir = dataDir + "/volume/logs/"+dtype
+    logdir = dataDir + "/volume/logs/"+atype
     logfile = logdir + "/dataingest.log"
     if retval > 0:
         logdir = userHome
@@ -111,11 +124,11 @@ if __name__ == "__main__":
         logger.error("Failed to create data directories.")
         exit(1)
 
-    print("Start processing cycle for entity " + dtype)
-    logger.info("Start processing cycle for entity %s", dtype)
+    print("Start processing cycle for entity " + atype)
+    logger.info("Start processing cycle for entity %s", atype)
 
-    # Get scanInterval from dtype configuration file
-    tableCfgPath = dataDir + "/volume/config/" + dtype + ".json"
+    # Get scanInterval from atype configuration file
+    tableCfgPath = dataDir + "/volume/config/" + atype + ".json"
     config = {}
     with open(tableCfgPath) as configFD:
         config = json.load(configFD)
@@ -146,30 +159,30 @@ if __name__ == "__main__":
             configFD.write(json.dumps(config, indent=4))
             configFD.close()
 
-        dtypeProFile = dataDir + "/volume/config/" + dtype + ".running"
+        atypeProFile = dataDir + "/volume/config/" + atype + ".running"
         if runtype == 'start':
-            if path.exists(dtypeProFile) == True:
-                print("Entity " + dtype + " processing is in locked state")
+            if path.exists(atypeProFile) == True:
+                print("Entity " + atype + " processing is in locked state")
                 print("If you want to restart, stop this process and use restart option, to unlock and start")
                 time.sleep(scanInterval)
                 continue
 
         print("Start next cycle ...")
         logger.info("Start next cycle ...")
-        f = open(dtypeProFile,"w+")
-        f.write("{ \"started\": %s }" % dtype)
+        f = open(atypeProFile,"w+")
+        f.write("{ \"started\": %s }" % atype)
         f.close()
            
-        retval = createDir(dataDir, "volume/data/" + dtype, dirperm)
-        retval += createDir(dataDir, "volume/data/" + dtype + "/schemas", dirperm)
-        retval += createDir(dataDir, "volume/data/" + dtype + "/data", dirperm)
+        retval = createDir(dataDir, "volume/data/" + atype, dirperm)
+        retval += createDir(dataDir, "volume/data/" + atype + "/schemas", dirperm)
+        retval += createDir(dataDir, "volume/data/" + atype + "/data", dirperm)
         CP = installDir + '/jre/lib/*:' + installDir + '/lib/*'
         if os.name == 'nt':
             CP = installDir + '/jre/lib/*;' + installDir + '/lib/*'
         logger.info("CP: %s", CP)
-        command =  installDir + '/jre/bin/java -classpath "' + CP + '" com.ibm.wiotp.masdc.DBConnector ' + dtype + ' register'
+        command =  installDir + '/jre/bin/java -classpath "' + CP + '" com.ibm.wiotp.masdc.DBConnector ' + atype + ' register'
         logger.info("CMD: %s", command)
-        logger.info("Start process for dtype: %s", dtype)
+        logger.info("Start process for atype: %s", atype)
         os.system(command)
 
         time.sleep(scanInterval)

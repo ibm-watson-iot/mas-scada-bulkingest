@@ -1,23 +1,29 @@
 #
 # IBM Maximo Application Suite - SCADA Bulk Data Ingest Connector
 # *****************************************************************************
-# Copyright (c) 2019 IBM Corporation and other Contributors.
+# Copyright (c) 2020 IBM Corporation and other Contributors.
 # All rights reserved. This program and the accompanying materials
 # are made available under the terms of the Eclipse Public License v1.0
 # which accompanies this distribution, and is available at
 # http://www.eclipse.org/legal/epl-v10.html
 # *****************************************************************************
 #
-# Script to install Data Connector on Windows Servers
+# Windows Powershell Script to install IBM MAS Data Connector on Windows Servers
 #
 
+# Update these variables if required
+$InstallPath = "C:\Program Files\IBM\masdc"
+$DataPath = "C:\IBM\masdc"
+
+# ----------------------------------------------------------------------------
+#           Do not make any changes beyond this line
+#
 
 # Create installation directory
-Write-Host "Creating Installation directory 'C:\Program Files\IBM\masdc'"
-$path = "C:\Program Files\IBM\masdc"
-if(!(Test-Path $path))
+Write-Host "Creating Installation directory $InstallPath"
+if(!(Test-Path $InstallPath))
 {
-    New-Item -Path 'C:\Program Files\IBM\masdc' -ItemType Directory
+    New-Item -Path '$InstallPath' -ItemType Directory
 }
 
 # Download connector github project
@@ -51,47 +57,44 @@ if(!(Test-Path $path))
 {
     Expand-Archive -Path connector.zip
 }
-$path = "C:\Program Files\IBM\masdc\bin"
+$path = "$InstallPath\bin"
 if(!(Test-Path $path))
 {
-    Copy-Item -Path .\connector\mas-scada-bulkingest-master\bin -Recurse -Destination "C:\Program Files\IBM\masdc\bin"
-    Copy-Item -Path .\connector\mas-scada-bulkingest-master\lib -Recurse -Destination "C:\Program Files\IBM\masdc\lib"
+    Copy-Item -Path .\connector\mas-scada-bulkingest-master\bin -Recurse -Destination "$InstallPath\bin"
+    Copy-Item -Path .\connector\mas-scada-bulkingest-master\lib -Recurse -Destination "$InstallPath\lib"
 }
 
 # Expand jre
-Write-Host "Expanding jre.zip in C:\Program Files\IBM\masdc"
-$path = "C:\Program Files\IBM\masdc\jre"
+Write-Host "Expanding jre.zip in $InstallPath"
+$path = "$InstallPath\jre"
 if(!(Test-Path $path))
 {
-    Expand-Archive -Path jre.zip -DestinationPath "C:\Program Files\IBM\masdc"
+    Expand-Archive -Path jre.zip -DestinationPath "$InstallPath"
 }
 
 # Expand python
-Write-Host "Expanding python.zip in C:\Program Files\IBM\masdc"
-$path = "C:\Program Files\IBM\masdc\python-3.7.5"
+Write-Host "Expanding python.zip in $InstallPath"
+$path = "$InstallPath\python-3.7.5"
 if(!(Test-Path $path))
 {
-    Expand-Archive -Path python.zip -DestinationPath "C:\Program Files\IBM\masdc"
+    Expand-Archive -Path python.zip -DestinationPath "$InstallPath"
 }
 
 # Create Data dir
-# Create installation directory
-Write-Host "Creating Installation directory 'C:\IBM\masdc'"
-$path = "C:\IBM\masdc"
-if(!(Test-Path $path))
+Write-Host "Creating Data directory $DataPath"
+if(!(Test-Path $DataPath))
 {
-    New-Item -Path 'C:\IBM\masdc' -ItemType Directory
+    New-Item -Path '$DataPath' -ItemType Directory
 }
 
 # Set Environment variables
-[System.Environment]::SetEnvironmentVariable('IBM_DATAINGEST_INSTALL_DIR', 'C:\Program Files\IBM\masdc',[System.EnvironmentVariableTarget]::Machine)
-[System.Environment]::SetEnvironmentVariable('IBM_DATAINGEST_DATA_DIR', 'C:\IBM\masdc',[System.EnvironmentVariableTarget]::Machine)
+[System.Environment]::SetEnvironmentVariable('IBM_DATAINGEST_INSTALL_DIR', '$InstallPath',[System.EnvironmentVariableTarget]::Machine)
+[System.Environment]::SetEnvironmentVariable('IBM_DATAINGEST_DATA_DIR', '$DataPath',[System.EnvironmentVariableTarget]::Machine)
 
 
-# Set service
-Write-Host "Set IBM MAS Dataconnector service"
-$serviceName = "IBMMasConnectorService"
-
+# Set service to extract entity data
+Write-Host "Set IBM MAS Entity Data Upload Service"
+$serviceName = "IBMMASEntityConnectorService"
 if (Get-Service $serviceName -ErrorAction SilentlyContinue)
 {
     $serviceToRemove = Get-WmiObject -Class Win32_Service -Filter "name='$serviceName'"
@@ -102,11 +105,27 @@ else
 {
     Write-Host "Service $serviceName does not exists"
 }
-
 Write-Host "Creating service $serviceName"
-$binaryPath = "C:\Program Files\IBM\masdc\bin\run.bat CakebreadType restart"
+$binaryPath = "$InstallPath\bin\connector.bat entity"
 New-Service -name $serviceName -binaryPathName $binaryPath -displayName $serviceName -startupType Automatic
-
 Write-Host "Service $serviceName installation is created."
 
+
+# Set service to extract alarm data
+Write-Host "Set IBM MAS Alarm Data Upload Service"
+$serviceName = "IBMMASAlarmConnectorService"
+if (Get-Service $serviceName -ErrorAction SilentlyContinue)
+{
+    $serviceToRemove = Get-WmiObject -Class Win32_Service -Filter "name='$serviceName'"
+    $serviceToRemove.delete()
+    Write-Host "Service $serviceName is removed"
+}
+else
+{
+    Write-Host "Service $serviceName does not exists"
+}
+Write-Host "Creating service $serviceName"
+$binaryPath = "$installPath\bin\connector.bat alarm"
+New-Service -name $serviceName -binaryPathName $binaryPath -displayName $serviceName -startupType Automatic
+Write-Host "Service $serviceName installation is created."
 
