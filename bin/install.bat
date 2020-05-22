@@ -10,5 +10,7 @@ REM http://www.eclipse.org/legal/epl-v10.html
 REM *****************************************************************************
 REM Script to install Data Connector
 
-REM ---- TO BE ADDED -----
+REM Invoke Powershell script to download packages and install
+
+powershell.exe -ExecutionPolicy Bypass .\bin\install.ps1
 

@@ -92,9 +92,9 @@ public class DBConnector {
             // Get install and data dir location from enviironment variables
             Map <String, String> map = System.getenv();
             for ( Map.Entry <String, String> entry: map.entrySet() ) {
-                if ( entry.getKey().compareTo("DATAINGEST_INSTALL_DIR") == 0 ) {
+                if ( entry.getKey().compareTo("IBM_DATAINGEST_INSTALL_DIR") == 0 ) {
                     installDir = entry.getValue();
-                } else if ( entry.getKey().compareTo("DATAINGEST_DATA_DIR") == 0 ) {
+                } else if ( entry.getKey().compareTo("IBM_DATAINGEST_DATA_DIR") == 0 ) {
                     dataDir = entry.getValue();
                 }
             }

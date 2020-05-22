@@ -30,8 +30,8 @@ from os import path
 
 userHome = str(Path.home())
 defaultDir = userHome + "/ibm/masdc"
-installDir = os.getenv('DATAINGEST_INSTALL_DIR', defaultDir)
-dataDir = os.getenv('DATAINGEST_DATA_DIR', defaultDir)
+installDir = os.getenv('IBM_DATAINGEST_INSTALL_DIR', defaultDir)
+dataDir = os.getenv('IBM_DATAINGEST_DATA_DIR', defaultDir)
 dibin = installDir + "/bin"
 sys.path.append(dibin)
 
