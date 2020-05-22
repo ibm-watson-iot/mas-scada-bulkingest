@@ -23,7 +23,7 @@ $DataPath = "C:\IBM\masdc"
 Write-Host "Creating Installation directory $InstallPath"
 if(!(Test-Path $InstallPath))
 {
-    New-Item -Path '$InstallPath' -ItemType Directory
+    New-Item -Path "$InstallPath" -ItemType Directory
 }
 
 # Download connector github project
@@ -106,8 +106,15 @@ else
     Write-Host "Service $serviceName does not exists"
 }
 Write-Host "Creating service $serviceName"
-$binaryPath = "$InstallPath\bin\connector.bat entity"
-New-Service -name $serviceName -binaryPathName $binaryPath -displayName $serviceName -startupType Automatic
+$params = @{
+    Name = "$serviceName"
+    BinaryPathName = "$InstallPath\bin\connector.bat entity"
+    DependsOn = "Remote Procedure Call (RPC)"
+    DisplayName = "IBM MAS Entity Upload Service"
+    Description = "Uploads entity data from SCADA historian to IBM MAS for Monitoring" 
+    StartupType = "Automatic"
+}
+New-Service @params
 Write-Host "Service $serviceName installation is created."
 
 
@@ -125,7 +132,14 @@ else
     Write-Host "Service $serviceName does not exists"
 }
 Write-Host "Creating service $serviceName"
-$binaryPath = "$installPath\bin\connector.bat alarm"
-New-Service -name $serviceName -binaryPathName $binaryPath -displayName $serviceName -startupType Automatic
+$params = @{
+    Name = "$serviceName"
+    BinaryPathName = "$InstallPath\bin\connector.bat alarm"
+    DependsOn = "Remote Procedure Call (RPC)"
+    DisplayName = "IBM MAS Alarm Upload Service"
+    Description = "Uploads alarm data from SCADA historian to IBM MAS for Monitoring" 
+    StartupType = "Automatic"
+}
+New-Service @params
 Write-Host "Service $serviceName installation is created."
 
