@@ -65,7 +65,7 @@ Invoke-WebRequest -Uri "https://raw.githubusercontent.com/ibm-watson-iot/mas-sca
 
 To install the connector, lauch a Command Propmt with admin priviledges and run the following commands:
 ```
-% powershell.exe -ExecutionPolicy Bypass .\bin\install.ps1
+% powershell.exe -ExecutionPolicy Bypass .\install.ps1
 ```
 
 ### On macOS or Linux systems
