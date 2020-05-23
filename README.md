@@ -23,7 +23,6 @@ Edition for your operating environment, see [About Docker CE](https://docs.docke
 ## Dependencies
 
 * Python 3.X (https://www.anaconda.com/distribution/)
-
 * OpenJDK 13.0.1
 * Docker (for dockerized version)
 
@@ -52,9 +51,24 @@ To build and run data connector docker container:
 
 
 
-## Get data connector source
+## MAS data connector installation steps
 
-### On macOS or Linux systems:
+### On Windows system:
+
+You need Powershell on your Windows system. Refer to the following link for details on 
+[How to install Powershell on Windows](https://docs.microsoft.com/en-us/powershell/scripting/install/installing-powershell-core-on-windows?view=powershell-7)?
+
+Use powershell command to download install script from GitHub project, in a temprary directory.
+```
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/ibm-watson-iot/mas-scada-bulkingest/master/bin/install.ps1" -OutFile ".\install.ps1"
+```
+
+To install the connector, lauch a Command Propmt with admin priviledges and run the following commands:
+```
+% powershell.exe -ExecutionPolicy Bypass .\bin\install.ps1
+```
+
+### On macOS or Linux systems
 
 Use one the following options to get the project source on your system:
 
@@ -75,46 +89,11 @@ $ cd /tmp
 $ git clone https://github.com/ibm-watson-iot/mas-scada-bulkingest
 ```
 
-### On Windows system:
-
-Use one the following options to get the project source on your system:
-
-1. Use a Web browser to download zip file of the GitHub project in c:\temp directory. Lauch a Command Propmt and run the following commands:
-```
-% cd c:\temp
-% unzip mas-scada-bulkingest-master.zip
-```
-2. Use curl command to download zip file of the GitHub project in c:\temp directory. Lauch a Command Propmt and run the following commands:
-```
-% curl https://github.com/ibm-watson-iot/mas-scada-bulkingest/archive/master.zip -L -o c:\temp\mas-scada-bulkingest-master.zip
-% cd c:\temp
-% unzip mas-scada-bulkingest-master.zip
-```
-3. Use git command to clone the GitHub project. Lauch a Command Propmt and run the following commands:
-```
-% cd c:\temp 
-% git clone https://github.com/ibm-watson-iot/mas-scada-bulkingest
-```
-
-
-## Install on Host Operating System
-
-### On macOS or Linux system
-
-Open a shell prompt, and run the install script:
+To install the connector, open a shell prompt, and run the install script:
 ```
 $ cd /tmp/mas-scada-bulkingest
 $ ./bin/install.sh
 ```
-
-### On Windows system
-
-Lauch a Command Propmt and run the following commands:
-```
-% cd c:\temp\mas-scada-bulkingest
-% .\bin\install.bat
-```
-
 
 ## Build and run docker image
 

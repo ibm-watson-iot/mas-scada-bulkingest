@@ -96,55 +96,142 @@ if(!(Test-Path $DataPath))
 [System.Environment]::SetEnvironmentVariable('IBM_DATAINGEST_INSTALL_DIR', $InstallPath,[System.EnvironmentVariableTarget]::Machine)
 [System.Environment]::SetEnvironmentVariable('IBM_DATAINGEST_DATA_DIR', $DataPath,[System.EnvironmentVariableTarget]::Machine)
 
+# Schedule upload tasks
+$scheduleObject = New-Object -ComObject schedule.service
+$scheduleObject.connect()
+$rootFolder = $scheduleObject.GetFolder("\")
+$rootFolder.CreateFolder("IBM")
+$ibmFolder = $scheduleObject.GetFolder("\IBM")
+$ibmFolder.CreateFolder("Maximo Application Suite")
 
-# Set service to extract entity data
-Write-Host "Set IBM MAS Entity Data Upload Service"
-$serviceName = "IBMMASEntityConnectorService"
-if (Get-Service $serviceName -ErrorAction SilentlyContinue)
-{
-    $serviceToRemove = Get-WmiObject -Class Win32_Service -Filter "name='$serviceName'"
-    $serviceToRemove.delete()
-    Write-Host "Service $serviceName is removed"
-}
-else
-{
-    Write-Host "Service $serviceName does not exists"
-}
-Write-Host "Creating service $serviceName"
-$params = @{
-    Name = "$serviceName"
-    BinaryPathName = "$InstallPath\bin\connector.bat entity"
-    DependsOn = "RpcSs"
-    DisplayName = "IBM MAS Entity Upload Service"
-    Description = "Uploads entity data from SCADA historian to IBM MAS for Monitoring" 
-    StartupType = "Automatic"
-}
-New-Service @params
-Write-Host "Service $serviceName installation is created."
+# Entity data upload task
+# Task config xml
+$xmlentity = @"
+<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Author>IBM</Author>
+    <Description>Uploads entity data from SCADA historian to IBM MAS for Monitoring</Description>
+    <URI>\IBM\Maximo Application Suite\Entity Data Upload Task</URI>
+  </RegistrationInfo>
+  <Triggers>
+    <RegistrationTrigger>
+      <Repetition>
+        <Interval>P1D</Interval>
+        <StopAtDurationEnd>false</StopAtDurationEnd>
+      </Repetition>
+      <Enabled>true</Enabled>
+    </RegistrationTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>S-1-5-18</UserId>
+      <RunLevel>HighestAvailable</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>true</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>true</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>true</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>true</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <DisallowStartOnRemoteAppSession>false</DisallowStartOnRemoteAppSession>
+    <UseUnifiedSchedulingEngine>true</UseUnifiedSchedulingEngine>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+    <Priority>7</Priority>
+    <RestartOnFailure>
+      <Interval>PT5M</Interval>
+      <Count>3</Count>
+    </RestartOnFailure>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>cmd</Command>
+      <Arguments>C:\Program Files\IBM\masdc\bin\coonnector.bat entity</Arguments>
+      <WorkingDirectory>C:\IBM\masdc\volume\logs</WorkingDirectory>
+    </Exec>
+  </Actions>
+</Task>
+"@
 
+# Register entity upload task
+$taskName = "IBMMASEntityDataUpload"
+$taskPath = "\IBM\Maximo Application Suite"
+Register-ScheduledTask -Xml $xmlentity -TaskName $taskName -TaskPath $taskPath
 
-# Set service to extract alarm data
-Write-Host "Set IBM MAS Alarm Data Upload Service"
-$serviceName = "IBMMASAlarmConnectorService"
-if (Get-Service $serviceName -ErrorAction SilentlyContinue)
-{
-    $serviceToRemove = Get-WmiObject -Class Win32_Service -Filter "name='$serviceName'"
-    $serviceToRemove.delete()
-    Write-Host "Service $serviceName is removed"
-}
-else
-{
-    Write-Host "Service $serviceName does not exists"
-}
-Write-Host "Creating service $serviceName"
-$params = @{
-    Name = "$serviceName"
-    BinaryPathName = "$InstallPath\bin\connector.bat alarm"
-    DependsOn = "RpcSs"
-    DisplayName = "IBM MAS Alarm Upload Service"
-    Description = "Uploads alarm data from SCADA historian to IBM MAS for Monitoring" 
-    StartupType = "Automatic"
-}
-New-Service @params
-Write-Host "Service $serviceName installation is created."
+# Alarm data upload task
+# Task config xml
+$xmlalarm = @"
+<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Author>IBM</Author>
+    <Description>Uploads alarm data from SCADA historian to IBM MAS for Monitoring</Description>
+    <URI>\IBM\Maximo Application Suite\Alarm Data Upload Task</URI>
+  </RegistrationInfo>
+  <Triggers>
+    <RegistrationTrigger>
+      <Repetition>
+        <Interval>P1D</Interval>
+        <StopAtDurationEnd>false</StopAtDurationEnd>
+      </Repetition>
+      <Enabled>true</Enabled>
+    </RegistrationTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>S-1-5-18</UserId>
+      <RunLevel>HighestAvailable</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>true</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>true</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>true</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>true</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <DisallowStartOnRemoteAppSession>false</DisallowStartOnRemoteAppSession>
+    <UseUnifiedSchedulingEngine>true</UseUnifiedSchedulingEngine>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+    <Priority>7</Priority>
+    <RestartOnFailure>
+      <Interval>PT5M</Interval>
+      <Count>3</Count>
+    </RestartOnFailure>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>cmd</Command>
+      <Arguments>C:\Program Files\IBM\masdc\bin\coonnector.bat alarm</Arguments>
+      <WorkingDirectory>C:\IBM\masdc\volume\logs</WorkingDirectory>
+    </Exec>
+  </Actions>
+</Task>
+"@
+
+# Register Alarm upload task
+$taskName = "IBMMASAlarmDataUpload"
+$taskPath = "\IBM\Maximo Application Suite"
+Register-ScheduledTask -Xml $xmlalarm -TaskName $taskName -TaskPath $taskPath
+
 
