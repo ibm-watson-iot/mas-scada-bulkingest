@@ -55,7 +55,7 @@ To build and run data connector docker container:
 
 ### On Windows system:
 
-You need Powershell on your Windows system. Refer to the following link for details on 
+You need Powershell on your Windows system. Powershell installation details: <br>
 [How to install Powershell on Windows](https://docs.microsoft.com/en-us/powershell/scripting/install/installing-powershell-core-on-windows?view=powershell-7)?
 
 Use powershell command to download install script from GitHub project, in a temprary directory.
