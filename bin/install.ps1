@@ -90,6 +90,9 @@ Write-Host "Creating Data directory $DataPath"
 if(!(Test-Path $DataPath))
 {
     New-Item -Path "$DataPath" -ItemType Directory
+    New-Item -Path "$DataPath\volume\logs" -ItemType Directory
+    New-Item -Path "$DataPath\volume\config" -ItemType Directory
+    New-Item -Path "$DataPath\volume\data" -ItemType Directory
 }
 
 # Set Environment variables
