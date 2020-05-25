@@ -26,11 +26,21 @@ if [ -d ${PYTHON_HOME} ]
 then
     PATH=$PATH:${DI_BIN}:${PYTHON_HOME}
     export PATH
-    ${PYTHON_HOME}/python ${DI_BIN}/run.py "$@"
+    if [ "$1" == "alarm" ]
+    then
+        ${PYTHON_HOME}/python ${DI_BIN}/alarm.py "$@"
+    else
+        ${PYTHON_HOME}/python ${DI_BIN}/entity.py "$@"
+    fi
 else
     PATH=$PATH:${DI_BIN}
     export PATH
-    python3 ${DI_BIN}/run.py "$@"
+    if [ "$1" == "alarm" ]
+    then
+        python3 ${DI_BIN}/alarm.py "$@"
+    else
+        python3 ${DI_BIN}/entity.py "$@"
+    fi
 fi
 
 

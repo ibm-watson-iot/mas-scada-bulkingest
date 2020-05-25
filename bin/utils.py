@@ -148,6 +148,7 @@ def normalizeDataFrame(dataPath, inputFile, config, regreq):
 
     # Create data frame from input file
     df = pd.read_csv(dataPath+'/csv/'+inputFile)
+    print(df)
 
     # process tagpath if set
     setDimensions = False

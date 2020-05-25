@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2019 IBM Corporation and other Contributors.
+ *  Copyright (c) 2019-2020 IBM Corporation and other Contributors.
  * 
  *  All rights reserved. This program and the accompanying materials
  *  are made available under the terms of the Eclipse Public License v1.0
@@ -21,6 +21,8 @@ import java.util.Map;
 import java.sql.*;
 import java.nio.file.*;
 import java.util.logging.*;
+import java.util.Date;
+import java.text.SimpleDateFormat;
 import org.json.*;
 
 // Extract data from SCADA historian database (mySQL and MSSQL), dump in a csv file,
@@ -34,6 +36,7 @@ public class DBConnector {
     static String connConfigFile = "";
     static String tableConfigFile = "";
     static String tableRunStatusFile = "";
+    static String uploadStatsFile = "";
     static String sourceHost = "";
     static String sourcePort = "";
     static String sourceDatabase = "";
@@ -67,6 +70,8 @@ public class DBConnector {
     static JSONArray collist = new JSONArray();
     static String [] cname = new String[MAX_TABLE_COLUMNS];
     static String [] ctype = new String[MAX_TABLE_COLUMNS];
+    static FileWriter fwStats;
+    static boolean testMode = false;
     
 
     /**
@@ -132,6 +137,7 @@ public class DBConnector {
             connConfigFile = dataDir + "/volume/config/connection.json";
             tableConfigFile = dataDir + "/volume/config/" + tableName + ".json";
             tableRunStatusFile = dataDir + "/volume/config/" + tableName + ".running";
+            uploadStatsFile = dataDir + "/volume/data/" + tableName + "/data/uploadStats.dat";
 
             // Get SCADA historian database configuration
             logger.info("Read connection configuration file: " + connConfigFile);
@@ -163,6 +169,7 @@ public class DBConnector {
             sampleEventCount = tableConfig.getInt("mqttEvents");
             batchInsertSize = dbConfig.getInt("insertSize");
             tstampColName = eventData.getString("timestamp");
+            testMode = tableConfig.getBoolean("testMode");
            
             // data files 
             csvFilePath = dataDir + "/volume/data/csv/" + tableName + ".csv";
@@ -172,7 +179,10 @@ public class DBConnector {
             smpFilePath = dataDir + "/volume/data/" + tableName + "/schemas/.sampleEventSent";
             prCsvFilePath = dataDir + "/volume/data/" + tableName + "/data/" + tableName + ".csv";
             ddlFilePath = dataDir + "/volume/data/" + tableName + "/schemas/" + tableName + ".ddl";
-          
+
+            // Open stats file for accounting
+            fwStats = new FileWriter(uploadStatsFile);
+
             // Extract sample data, identify entiries and register with WIoTP
             // skip if smpFilePath exist
             File smpSendFile = new File(smpFilePath);
@@ -201,6 +211,9 @@ public class DBConnector {
             } catch(Exception e) {  
                 e.printStackTrace();  
             }  
+
+            // close stats file
+            fwStats.close();
 
         } catch (Exception ex) {
             logger.info("Exception information: " + ex.getMessage());
@@ -303,21 +316,21 @@ public class DBConnector {
     
                 // Get column count                
                 final ResultSetMetaData rsmd = rs.getMetaData();
-                int colunmCount = rsmd.getColumnCount();
+                int columnCount = rsmd.getColumnCount();
     
                 // Open csv file and write column headers
                 logger.info("Dump extracted data to: " + csvFilePath);
                 fw = new FileWriter(csvFilePath);
-                for (int i = 1; i <= colunmCount; i++) {
+                for (int i = 1; i <= columnCount; i++) {
                     fw.append(rs.getMetaData().getColumnName(i));
-                    if ( i < colunmCount ) fw.append(",");
+                    if ( i < columnCount ) fw.append(",");
                 }
                 fw.append(System.getProperty("line.separator"));
       
                 // For each row, loop thru the number of columns and write to the csv file
                 int rowCount = 0;
                 while (rs.next()) {
-                    for (int i = 1; i <= colunmCount; i++) {
+                    for (int i = 1; i <= columnCount; i++) {
                         if (rs.getObject(i) != null) {
                             String data = rs.getObject(i).toString();
                             fw.append(data);
@@ -325,7 +338,7 @@ public class DBConnector {
                             String data = "null";
                             fw.append(data);
                         }
-                        if ( i < colunmCount ) fw.append(",");
+                        if ( i < columnCount ) fw.append(",");
                     }
                     fw.append(System.getProperty("line.separator"));
                     rowCount += 1;
@@ -333,7 +346,7 @@ public class DBConnector {
                 fw.flush();
                 fw.close();
 
-                String msg1 = String.format("Data extracted: columns=%d  rows=%d\n", colunmCount, rowCount);
+                String msg1 = String.format("Data extracted: columns=%d  rows=%d\n", columnCount, rowCount);
                 logger.info(msg1);
     
                 // Run script if specified
@@ -407,7 +420,7 @@ public class DBConnector {
                 }
 
                 // create table if needed
-                if ( applyDDL.compareTo("true") == 0 ) {
+                if ( applyDDL.compareTo("true") == 0 && testMode == false ) {
                     if ( createTable(datalake, tableName, ddlFilePath) == 1 ) {
                         logger.info("Failed to create table in Data Lake: table name " + tableName);
                     } else {
@@ -459,7 +472,7 @@ public class DBConnector {
     
                     // Get column count                
                     final ResultSetMetaData rsmd = rs.getMetaData();
-                    int colunmCount = rsmd.getColumnCount();
+                    int columnCount = rsmd.getColumnCount();
     
                     // move to last row and get time stamp value
                     rs.last();
@@ -471,9 +484,9 @@ public class DBConnector {
                     
                     // Open csv file and write column headers    
                     fw = new FileWriter(csvFilePath);
-                    for (int i = 1; i <= colunmCount; i++) {
+                    for (int i = 1; i <= columnCount; i++) {
                         fw.append(rs.getMetaData().getColumnName(i));
-                        if ( i < colunmCount ) fw.append(",");
+                        if ( i < columnCount ) fw.append(",");
                     }
                     fw.append(System.getProperty("line.separator"));
         
@@ -481,7 +494,7 @@ public class DBConnector {
                     int rowCount = 0;
                     while (rs.next()) {
                         // if ( rs.getLong(tstampColName) < l_t_stamp) {
-                            for (int i = 1; i <= colunmCount; i++) {
+                            for (int i = 1; i <= columnCount; i++) {
                                 if (rs.getObject(i) != null) {
                                     String data = rs.getObject(i).toString();
                                     fw.append(data);
@@ -489,7 +502,7 @@ public class DBConnector {
                                     String data = "null";
                                     fw.append(data);
                                 }
-                                if ( i < colunmCount ) fw.append(",");
+                                if ( i < columnCount ) fw.append(",");
                             }
                             fw.append(System.getProperty("line.separator"));
                             rowCount += 1;
@@ -500,7 +513,15 @@ public class DBConnector {
                    
                     conn.close();
 
-                    String dmsg = String.format("Data extracted: columns=%d  rows=%d\n", colunmCount, rowCount); 
+                    // get extracted csv file size
+                    long csvFileSize = 0;
+                    long prCsvFileSize = 0;
+                    try {
+                        File exfile = new File(csvFilePath);
+                        csvFileSize = exfile.length();
+                    } catch (Exception e) {}
+
+                    String dmsg = String.format("Data extracted: columns=%d  rows=%d\n", columnCount, rowCount); 
                     logger.info(dmsg);
    
                     // Run script is specified
@@ -521,9 +542,17 @@ public class DBConnector {
                     
                         // Upload data using batch insert
                         int nuploaded = 0;
-                        if (rowCount > 0 ) {
+                        if (rowCount > 0 && testMode == false) {
                             nuploaded = batchInsert(datalake, tableName, ddlFilePath, prCsvFilePath);
+                        } else {
+                            nuploaded = columnCount;
                         }
+
+                        // get processed csv file size
+                        try {
+                            File prfile = new File(prCsvFilePath);
+                            prCsvFileSize = prfile.length();
+                        } catch (Exception e) {}
 
                         // oepn file to write processed data
                         if ( nuploaded > 0 || rowCount == 0 ) {
@@ -561,10 +590,18 @@ public class DBConnector {
                         logger.info("Failed to upload processed data.");
                         break;
                     }
-    
+
+                    // write upload stats for accounting
+                    Timestamp ts = new Timestamp(System.currentTimeMillis());
+                    String curTime = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss").format(ts);
+                    String statsMsg = String.format(
+                        "%s  ExtSize=%d TransSize=%d ExtCols=%d ExtRows=%d ProcRows=%d Uploaded=%s LastRecTS=%d\n",
+                        curTime, csvFileSize, prCsvFileSize, columnCount, rowCount, nprocessed, uploaded, l_t_stamp);
+                    fwStats.write(statsMsg);
+                    fwStats.flush();
+ 
+                    // write offset location
                     startRow = startRow + nprocessed;
-    
-                    // oepn file to write offset location
                     fw = new FileWriter(offFilePath);
                     String offsetRec = "{ \"startRow\":" + startRow + ", \"t_stamp\":" + l_t_stamp + " }";
                     fw.write(offsetRec);
@@ -578,7 +615,12 @@ public class DBConnector {
                     try {
                         Thread.sleep(5000);
                     } catch (Exception e) {}
-            
+
+                    // For testMode stop the loop
+                    if ( testMode == true ) {
+                        getNextChunk = false;
+                        logger.info("Test mode is enabled. Stop chuck processing loop");
+                    }
                 }
         
             } else {

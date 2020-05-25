@@ -466,7 +466,7 @@ if __name__ == "__main__":
     logger.setLevel(logging.DEBUG)
 
     # Create directories
-    logger.info("Create directory if needed for processing %s", type)
+    logger.info("Create directory if needed to process: %s", type)
     retval = utils.createDir(dataDir, "volume/data/" + type, dirperm)
     retval += utils.createDir(dataDir, "volume/data/" + type + "/schemas", dirperm)
     retval += utils.createDir(dataDir, "volume/data/" + type + "/data", dirperm)
@@ -476,7 +476,7 @@ if __name__ == "__main__":
     dataPath = dataDir + "/volume/data"
 
     inputFile = type + ".csv" 
-    logger.info("Process device type file: "+ inputFile)
+    logger.info("Process input device data file: "+ inputFile)
 
     # Get configuration
     if configPath == "":
@@ -498,12 +498,12 @@ if __name__ == "__main__":
     conncfg = {}
     with open(tableCfgPath) as configFD:
         config = json.load(configFD)
-        logger.info("Set config items")
+        logger.info("Read configuraion items from entity config file.")
         configFD.close()
 
     with open(connCfgPath) as configFD:
         conncfg = json.load(configFD)
-        logger.info("Set config items")
+        logger.info("Read configuration items from connection config file.")
         configFD.close()
 
     # Normalize extracted data
@@ -513,7 +513,7 @@ if __name__ == "__main__":
     useDeviceId = ''
     if 'entityData' in config:
         if 'deviceId' in config['entityData']:
-            useDeviceId = df.iloc[1]['deviceId']
+            useDeviceId = df.iloc[0]['deviceId']
             print("Use deviceId for sending sample event: " + useDeviceId)
 
     # Create event mappings, phyical and logical interface schemas
@@ -539,7 +539,7 @@ if __name__ == "__main__":
             intfDoneFD.write(logicalInterfaceId)
             intfDoneFD.close()
 
-    # create device type, id, phycal and local interfacees and activate interface
+    # create device type, id, phycal and logical interfacees and activate interface
     eventData = config['eventData']
     if logicalInterfaceId == "" and eventData['registerInterfaces'] == True:
         addDeviceType(type, conncfg)
@@ -557,5 +557,9 @@ if __name__ == "__main__":
                 utils.sendEvent(type, conncfg, df, dataPath, useDeviceId, 1, config['mqttEvents'])
                 # wait for some time for table in data lake to get created
                 time.sleep(5)
+        else:
+            sendEventFD = open(dataPath+'/'+type+'/schemas/.sampleEventSent', "w")
+            sendEventFD.write('Sample Event is sent')
+            sendEventFD.close()
 
 

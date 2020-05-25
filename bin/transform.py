@@ -64,9 +64,9 @@ def transformInputCSV(dataPath, interfaceId, inputFile, outputFile, type, conncf
     addDevices(type, conncfg, df)
     
     # Add dimensions
-    addDimensions(type, conncfg, config, df)
-    discardColumn = [ 'dimensionData' ]
-    df = df.drop(discardColumn, axis=1)
+    if addDimensions(type, conncfg, config, df) == True:
+        discardColumn = [ 'dimensionData' ]
+        df = df.drop(discardColumn, axis=1)
     
     # If events are sent using mqtt then return df
     if config['mqttEvents'] == -1:
@@ -213,7 +213,8 @@ def addDimensions(type, conncfg, config, df):
             setDimensions = tagData['setDimensions']
             tagpath = tagData['tagpath']
     if setDimensions == False or tagpath == '':
-        return
+        return False
+
     client = config['client']
 
     # Get parameters from config object
@@ -271,6 +272,8 @@ def addDimensions(type, conncfg, config, df):
         response = requests.post(url, data=json.dumps(payload), params={'blocking': 'true', 'result': 'true'}, headers=headers)
         logger.info(response.status_code)
         logger.info(response.text)
+
+    return True
 
 
 #
@@ -370,10 +373,14 @@ if __name__ == "__main__":
         logger.info(jsonCols["ColumnTitle"])
 
     # get interface id
+    interfaceId = ""
     intfDoneFile = dataPath+type+'/schemas/intfActivated'
-    intfDoneFD = open(intfDoneFile, "r")
-    interfaceId = intfDoneFD.readline()
-    intfDoneFD.close()
+    if path.exists(intfDoneFile) == True:
+        # get interface id
+        intfDoneFD = open(intfDoneFile, "r")
+        interfaceId = intfDoneFD.readline()
+        intfDoneFD.close()
+        logger.info("Read Logical Interface ID: " + logicalInterfaceId)
 
     # Transform input CSV file
     outputFile = dataPath+type+'/data/'+type+'.csv'

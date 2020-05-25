@@ -44,6 +44,7 @@
         "evt_name": "string"
     }, 
     "interfaceRequired": [ "tagid", "evt_name" ],
-    "mqttEvents": 1
+    "mqttEvents": 1,
+    "testMode": false
 }
 
