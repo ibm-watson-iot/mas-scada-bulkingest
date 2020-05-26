@@ -1,19 +1,22 @@
 {
-    "client": "TestUser",
+    "client": "JPV",
+    "type": "entity",
+    "runMode": 0,
     "database": {
-        "sqlStatement": "select * from sqlt_data_1_2020_04 as data, sqlth_te as tag where data.tagid = tag.id order by t_stamp ASC",
-        "fetchSize": 50000,
-        "insertSize": 10000,
-        "scanInterval": 120,
+        "sqlFile": "",
+        "sqlStatement": "select * from oakville",
+        "fetchSize": 600,
+        "insertSize": 600,
+        "scanInterval": 300,
         "tableNameChangeDate": 1,
-        "sqlStatementFormat": "select * from sqlt_data_1_%Y_%m as data, sqlth_te as tag where data.tagid = tag.id order by t_stamp ASC"
+        "sqlStatementFormat": "select * from oakville"
     },
     "tagData": {
         "tagpath": "tagpath",
         "tagpathParseCount": 0,
         "tagMap": {},
-        "setDimensions": true,
-        "eventTagLevel": 0,
+        "setDimensions": false,
+        "eventTagLevel": 1,
         "eventColumnName": "evt_name"
     },
     "entityData": {
@@ -29,11 +32,19 @@
         "id": "",
         "type": "datatype",
         "value": "evt_data",
-        "consolidateTimestamp": false,
         "ignoreTypes": [],
         "registerInterfaces": true
     },
-    "discardColumns": [ "dataintegrity", "id", "querymode", "created", "retired", "datatype", "scid", "tagpath" ],
+    "discardColumns": [
+        "dataintegrity",
+        "id",
+        "querymode",
+        "created",
+        "retired",
+        "datatype",
+        "scid",
+        "tagpath"
+    ],
     "renameColumns": {},
     "interfaceEvents": {
         "tagid": "integer",
@@ -42,9 +53,10 @@
         "stringvalue": "string",
         "datevalue": "string",
         "evt_name": "string"
-    }, 
-    "interfaceRequired": [ "tagid", "evt_name" ],
-    "mqttEvents": 1,
-    "testMode": false
+    },
+    "interfaceRequired": [
+        "tagid",
+        "evt_name"
+    ],
+    "mqttEvents": 1
 }
-

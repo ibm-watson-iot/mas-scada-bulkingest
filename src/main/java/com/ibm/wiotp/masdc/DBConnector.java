@@ -64,6 +64,7 @@ public class DBConnector {
     static int scanInterval = 120;
     static int batchInsertSize = 10000;
     static String customSql = "";
+    static String customSqlFile = "";
     static int sampleEventCount = 1;
     static Logger logger = Logger.getLogger("dataingest.extract");  
     static FileHandler fh;  
@@ -71,7 +72,8 @@ public class DBConnector {
     static String [] cname = new String[MAX_TABLE_COLUMNS];
     static String [] ctype = new String[MAX_TABLE_COLUMNS];
     static FileWriter fwStats;
-    static boolean testMode = false;
+    static String pType = "";
+    static int runMode = 0;
     
 
     /**
@@ -165,11 +167,21 @@ public class DBConnector {
             JSONObject eventData = tableConfig.getJSONObject("eventData");
             chunkSize = dbConfig.getInt("fetchSize");
             scanInterval = dbConfig.getInt("scanInterval");
+            customSqlFile = dbConfig.getString("sqlFile");
             customSql = dbConfig.getString("sqlStatement");
             sampleEventCount = tableConfig.getInt("mqttEvents");
             batchInsertSize = dbConfig.getInt("insertSize");
             tstampColName = eventData.getString("timestamp");
-            testMode = tableConfig.getBoolean("testMode");
+            pType = tableConfig.getString("type");
+
+            // check for run mode - 0=production, 1=extractOnly, 2=testMode
+            int runMode = tableConfig.getInt("runMode");
+
+            // Read customSql statement from file, if file is specified
+            if (customSqlFile.compareTo("") != 0) {
+                String custSqlFilePath = dataDir + "/volume/config/" + customSqlFile;
+                customSql = new String(Files.readAllBytes(Paths.get(custSqlFilePath)));
+            }
            
             // data files 
             csvFilePath = dataDir + "/volume/data/csv/" + tableName + ".csv";
@@ -189,14 +201,18 @@ public class DBConnector {
             if ( smpSendFile.exists()) {
                 logger.info("Skip registration - sample send file exists.");
             } else {
-                int norows = getnorows();
-                String msg1 = String.format("Number of records in source database: %d\n", norows);
-                logger.info(msg1);
+                if ( pType.compareTo("entity") == 0 ) {
+                    int norows = getnorows();
+                    String msg1 = String.format("Number of records in source database: %d\n", norows);
+                    logger.info(msg1);
+                }
                 register();
             }
 
             // Extract data, and upload to data lake
-            upload(datalake);
+            if ( runMode == 0 ) {
+                upload(datalake);
+            }
 
             logger.info("End: Data processing: " + tableName);
 
@@ -312,7 +328,11 @@ public class DBConnector {
                 }
      
                 logger.info("SQL: " + sqlStr);
-                rs = stmt.executeQuery(sqlStr);
+                if ( pType.compareTo("entity") == 0 ) {
+                    rs = stmt.executeQuery(sqlStr);
+                } else {
+                    rs = stmt.executeQuery(customSql);
+                }
     
                 // Get column count                
                 final ResultSetMetaData rsmd = rs.getMetaData();
@@ -348,18 +368,20 @@ public class DBConnector {
 
                 String msg1 = String.format("Data extracted: columns=%d  rows=%d\n", columnCount, rowCount);
                 logger.info(msg1);
-    
-                // Run script if specified
-                String[] command ={pythonPath, scriptPath, tableName, dataDir}; 
-                logger.info("Run action script: " + scriptPath);
-                ProcessBuilder pb = new ProcessBuilder(command);
-                try {
-                    Process p = pb.start();
-                    p.waitFor();
-                    p.destroy();
-                    logger.info("Register script is executed.");
-                } catch (Exception e) {
-                    logger.info("Exception during execution of action script." + e.getMessage());
+   
+                if ( runMode != 1 ) { 
+                    // Run script if specified
+                    String[] command ={pythonPath, scriptPath, tableName, dataDir}; 
+                    logger.info("Run action script: " + scriptPath);
+                    ProcessBuilder pb = new ProcessBuilder(command);
+                    try {
+                        Process p = pb.start();
+                        p.waitFor();
+                        p.destroy();
+                        logger.info("Register script is executed.");
+                    } catch (Exception e) {
+                        logger.info("Exception during execution of action script." + e.getMessage());
+                    }
                 }
         
                 conn.close();
@@ -420,7 +442,7 @@ public class DBConnector {
                 }
 
                 // create table if needed
-                if ( applyDDL.compareTo("true") == 0 && testMode == false ) {
+                if ( applyDDL.compareTo("true") == 0 && runMode == 0 ) {
                     if ( createTable(datalake, tableName, ddlFilePath) == 1 ) {
                         logger.info("Failed to create table in Data Lake: table name " + tableName);
                     } else {
@@ -435,6 +457,7 @@ public class DBConnector {
                 String limitStr = "";
                 long t_stamp = 0;
                 long l_t_stamp  = 0;
+                String l_t_stampStr  = "";
                 int nRows = 0;
                 while ( getNextChunk ) {
                     // Set limit and offset
@@ -467,8 +490,13 @@ public class DBConnector {
                     stmt = conn.createStatement();
     
                     ResultSet rs;
-                    logger.info("SQL: " + customSql + limitStr);
-                    rs = stmt.executeQuery(customSql + limitStr);
+                    if ( pType.compareTo("entity") == 0 ) {
+                        logger.info("SQL: " + customSql + limitStr);
+                        rs = stmt.executeQuery(customSql + limitStr);
+                    } else {
+                        logger.info("SQL: " + customSql);
+                        rs = stmt.executeQuery(customSql);
+                    }
     
                     // Get column count                
                     final ResultSetMetaData rsmd = rs.getMetaData();
@@ -476,10 +504,17 @@ public class DBConnector {
     
                     // move to last row and get time stamp value
                     rs.last();
-                    l_t_stamp = rs.getLong(tstampColName);
-                    nRows = rs.getRow();
-                    String emsg = String.format("RowsExtracted: %d Last_tTtamp: %d", nRows, l_t_stamp);
-                    logger.info(emsg);
+                    if ( pType.compareTo("entity") == 0 ) {
+                        l_t_stamp = rs.getLong(tstampColName);
+                        nRows = rs.getRow();
+                        String emsg = String.format("RowsExtracted: %d Last_tTtamp: %d", nRows, l_t_stamp);
+                        logger.info(emsg);
+                    } else {
+                        l_t_stampStr = rs.getString(tstampColName);
+                        nRows = rs.getRow();
+                        String emsg = String.format("RowsExtracted: %d Last_tTtamp: %s", nRows, l_t_stampStr);
+                        logger.info(emsg);
+                    }
                     rs.first();
                     
                     // Open csv file and write column headers    
@@ -542,7 +577,7 @@ public class DBConnector {
                     
                         // Upload data using batch insert
                         int nuploaded = 0;
-                        if (rowCount > 0 && testMode == false) {
+                        if (rowCount > 0 && runMode == 0) {
                             nuploaded = batchInsert(datalake, tableName, ddlFilePath, prCsvFilePath);
                         } else {
                             nuploaded = columnCount;
@@ -617,7 +652,7 @@ public class DBConnector {
                     } catch (Exception e) {}
 
                     // For testMode stop the loop
-                    if ( testMode == true ) {
+                    if ( runMode == 2 ) {
                         getNextChunk = false;
                         logger.info("Test mode is enabled. Stop chuck processing loop");
                     }
@@ -669,7 +704,7 @@ public class DBConnector {
             logger.info("Data processing cycle is complete.");
 					
         } catch (Exception ex) {
-            logger.info("Exception information:" + ex.getMessage());
+            logger.info("Exception information: " + ex.getMessage());
         }
     }
 

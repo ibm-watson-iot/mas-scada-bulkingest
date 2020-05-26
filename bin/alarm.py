@@ -185,7 +185,7 @@ if __name__ == "__main__":
         if os.name == 'nt':
             CP = installDir + '/jre/lib/*;' + installDir + '/lib/*'
         logger.info("CP: %s", CP)
-        command =  installDir + '/jre/bin/java -classpath "' + CP + '" com.ibm.wiotp.masdc.DBConnector ' + atype + ' register'
+        command =  installDir + '/jre/bin/java -classpath "' + CP + '" com.ibm.wiotp.masdc.DBConnector ' + atype
         logger.info("CMD: %s", command)
         logger.info("Start process for atype: %s", atype)
         os.system(command)

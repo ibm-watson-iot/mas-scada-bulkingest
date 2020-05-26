@@ -99,8 +99,10 @@ def getTS(ts, regreq):
     return utc
 
 # Set timestamp column
-def set_timestamp_field(row, tStamp, regreq):
+def set_timestamp_field(row, tStamp, tsConvert, regreq):
     ts = row[tStamp]
+    if tsConvert == 0:
+        return ts
     tsUTC = getTS(ts, regreq)
     return tsUTC 
 
@@ -223,10 +225,14 @@ def normalizeDataFrame(dataPath, inputFile, config, regreq):
         # Ignore timestamp column for registration data
         if regreq == 0:
             tStamp = ''
+            tsConvert = 1
             if 'timestamp' in eventData:
                 tStamp = eventData['timestamp']
+            if 'tsconvert' in eventData:
+                if eventData['tsconvert'] == False:
+                    tsConvert = 0
             if tStamp != "":
-                df[tStamp] = df.apply (lambda row: set_timestamp_field(row, tStamp, regreq), axis=1)
+                df[tStamp] = df.apply (lambda row: set_timestamp_field(row, tStamp, tsConvert, regreq), axis=1)
         evtId = ''
         if 'id' in eventData:
             evtId = eventData['id']
