@@ -120,7 +120,7 @@ $xmlentity = @"
   <Triggers>
     <RegistrationTrigger>
       <Repetition>
-        <Interval>P1D</Interval>
+        <Interval>P31D</Interval>
         <StopAtDurationEnd>false</StopAtDurationEnd>
       </Repetition>
       <Enabled>true</Enabled>
@@ -185,7 +185,7 @@ $xmlalarm = @"
   <Triggers>
     <RegistrationTrigger>
       <Repetition>
-        <Interval>P1D</Interval>
+        <Interval>P31D</Interval>
         <StopAtDurationEnd>false</StopAtDurationEnd>
       </Repetition>
       <Enabled>true</Enabled>
