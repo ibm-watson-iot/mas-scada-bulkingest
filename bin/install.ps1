@@ -160,7 +160,7 @@ $xmlentity = @"
   <Actions Context="Author">
     <Exec>
       <Command>cmd</Command>
-      <Arguments>C:\Program Files\IBM\masdc\bin\coonnector.bat entity</Arguments>
+      <Arguments>/K "C:\Program Files\IBM\masdc\bin\connector.bat" entity</Arguments>
       <WorkingDirectory>C:\IBM\masdc\volume\logs</WorkingDirectory>
     </Exec>
   </Actions>
@@ -225,7 +225,7 @@ $xmlalarm = @"
   <Actions Context="Author">
     <Exec>
       <Command>cmd</Command>
-      <Arguments>C:\Program Files\IBM\masdc\bin\coonnector.bat alarm</Arguments>
+      <Arguments>/K "C:\Program Files\IBM\masdc\bin\connector.bat" alarm</Arguments>
       <WorkingDirectory>C:\IBM\masdc\volume\logs</WorkingDirectory>
     </Exec>
   </Actions>
