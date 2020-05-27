@@ -175,7 +175,9 @@ public class DBConnector {
             pType = tableConfig.getString("type");
 
             // check for run mode - 0=production, 1=extractOnly, 2=testMode
-            int runMode = tableConfig.getInt("runMode");
+            runMode = tableConfig.getInt("runMode");
+            String msg = String.format("Run mode is %d\n", runMode);
+            logger.info(msg);
 
             // Read customSql statement from file, if file is specified
             if (customSqlFile.compareTo("") != 0) {
@@ -193,6 +195,9 @@ public class DBConnector {
             ddlFilePath = dataDir + "/volume/data/" + tableName + "/schemas/" + tableName + ".ddl";
 
             // Open stats file for accounting
+            // A CSV file with the following data
+            // Log Time, Extracted Size, Extracted Column, Extracted Rows, 
+            // Transformed Size, Processed Rows, Uploaded, TS of last record
             fwStats = new FileWriter(uploadStatsFile);
 
             // Extract sample data, identify entiries and register with WIoTP
@@ -210,7 +215,7 @@ public class DBConnector {
             }
 
             // Extract data, and upload to data lake
-            if ( runMode == 0 ) {
+            if ( runMode != 1 ) {
                 upload(datalake);
             }
 
@@ -322,17 +327,13 @@ public class DBConnector {
 
                 // retrieve one record
                 if ( type == 1 ) {
-                    sqlStr = customSql + " limit 1,1";
+                    sqlStr = customSql + " LIMIT 0,5";
                 } else {
-                    sqlStr = customSql + " OFFSET 1 ROWS FETCH NEXT 1 ROWS ONLY";
+                    sqlStr = customSql + " OFFSET 1 ROWS FETCH NEXT 5 ROWS ONLY";
                 }
      
                 logger.info("SQL: " + sqlStr);
-                if ( pType.compareTo("entity") == 0 ) {
-                    rs = stmt.executeQuery(sqlStr);
-                } else {
-                    rs = stmt.executeQuery(customSql);
-                }
+                rs = stmt.executeQuery(sqlStr);
     
                 // Get column count                
                 final ResultSetMetaData rsmd = rs.getMetaData();
@@ -423,284 +424,235 @@ public class DBConnector {
             boolean useChunk = true;
             String scriptPath = installDir + "/bin/transform.py";
 
-            if ( dbType.compareTo("none") != 0 ) {
-                // DB connection
-                logger.info("Upload: Connecting to database to extract data from " + tableName);
-                boolean getNextChunk = true;
-                int type = 1;
-                String DB_URL = "jdbc:sqlserver://"+sourceHost+":"+sourcePort+";databaseName="+sourceDatabase+";user="+
-                    sourceUser+";password="+sourcePassword;
+            // DB connection
+            logger.info("Upload: Connecting to database to extract data from " + tableName);
+            boolean getNextChunk = true;
+            int type = 1;
+            String DB_URL = "jdbc:sqlserver://"+sourceHost+":"+sourcePort+";databaseName="+sourceDatabase+";user="+
+                sourceUser+";password="+sourcePassword;
 
-                // For prep and upload action, get table column names from data lake
-                // only before first extraction of data from SCADA
-                String applyDDL = "false";
-                if ( collist.length() == 0 ) {
+            // For prep and upload action, get table column names from data lake
+            // only before first extraction of data from SCADA
+            String applyDDL = "false";
+            if ( collist.length() == 0 ) {
+                if ( getDB2TableHeaders(datalake, tableName, clnFilePath) == 1 ) {
+                    logger.info("Failed to get column names from Data Lake table " + tableName);
+                    applyDDL = "true";
+                }
+            }
+
+            // create table if needed
+            if ( applyDDL.compareTo("true") == 0 && runMode == 0 ) {
+                if ( createTable(datalake, tableName, ddlFilePath) == 1 ) {
+                    logger.info("Failed to create table in Data Lake: table name " + tableName);
+                } else {
+                    // get table headers from data lake
                     if ( getDB2TableHeaders(datalake, tableName, clnFilePath) == 1 ) {
                         logger.info("Failed to get column names from Data Lake table " + tableName);
-                        applyDDL = "true";
                     }
                 }
+            }
 
-                // create table if needed
-                if ( applyDDL.compareTo("true") == 0 && runMode == 0 ) {
-                    if ( createTable(datalake, tableName, ddlFilePath) == 1 ) {
-                        logger.info("Failed to create table in Data Lake: table name " + tableName);
-                    } else {
-                        // get table headers from data lake
-                        if ( getDB2TableHeaders(datalake, tableName, clnFilePath) == 1 ) {
-                            logger.info("Failed to get column names from Data Lake table " + tableName);
-                        }
+            // retrieve records
+            String limitStr = "";
+            long t_stamp = 0;
+            long l_t_stamp  = 0;
+            String l_t_stampStr  = "";
+            int nRows = 0;
+            while ( getNextChunk ) {
+                // Set limit and offset
+                int startRow = 0;
+                try {
+                    String offsetRecordStr = new String (Files.readAllBytes(Paths.get(offFilePath)));
+                    JSONObject offsetRecord = new JSONObject(offsetRecordStr);
+                    startRow = offsetRecord.getInt("startRow");
+                }
+                catch (Exception e) {
+                    logger.info("Data offset file is not created yet. Start from begining. " + e.getMessage());
+                } 
+
+                if ( dbType.compareTo("mysql") == 0 ) {
+                    DB_URL = "jdbc:mysql://" + sourceHost + "/" + sourceSchema;
+                    conn = DriverManager.getConnection(DB_URL, sourceUser, sourcePassword);
+                    limitStr = " LIMIT " + startRow + "," + chunkSize;
+                } else {
+                    conn = DriverManager.getConnection(DB_URL);
+                    type = 2;
+                    if ( startRow == 0 ) {
+                        logger.info("Invalid LIMIT. Reset to 1.");
+                        startRow = 1;
                     }
+                    limitStr = " LIMIT OFFSET " + startRow +
+                           " ROWS FETCH NEXT " + chunkSize + " ROWS ONLY";
                 }
 
-                // retrieve records
-                String limitStr = "";
-                long t_stamp = 0;
-                long l_t_stamp  = 0;
-                String l_t_stampStr  = "";
-                int nRows = 0;
-                while ( getNextChunk ) {
-                    // Set limit and offset
-                    int startRow = 1;
-                    try {
-                        String offsetRecordStr = new String (Files.readAllBytes(Paths.get(offFilePath)));
-                        JSONObject offsetRecord = new JSONObject(offsetRecordStr);
-                        startRow = offsetRecord.getInt("startRow");
-                        t_stamp = offsetRecord.getLong("t_stamp");
-                        if ( startRow == 0 ) {
-                            logger.info("Invalid data offset. Reset to 1.");
-                            startRow = 1;
-                        }
-                    }
-                    catch (Exception e) {
-                        logger.info("Data offset file is not created yet. Start from begining. " + e.getMessage());
-                    } 
+                stmt = conn.createStatement();
+
+                ResultSet rs;
+                logger.info("SQL: " + customSql + limitStr);
+                rs = stmt.executeQuery(customSql + limitStr);
+
+                // Get column count                
+                final ResultSetMetaData rsmd = rs.getMetaData();
+                int columnCount = rsmd.getColumnCount();
+
+                // Open csv file and write column headers    
+                fw = new FileWriter(csvFilePath);
+                for (int i = 1; i <= columnCount; i++) {
+                    fw.append(rs.getMetaData().getColumnName(i));
+                    if ( i < columnCount ) fw.append(",");
+                }
+                fw.append(System.getProperty("line.separator"));
     
-                    if ( dbType.compareTo("mysql") == 0 ) {
-                        DB_URL = "jdbc:mysql://" + sourceHost + "/" + sourceSchema;
-                        conn = DriverManager.getConnection(DB_URL, sourceUser, sourcePassword);
-                        limitStr = " limit " + startRow + "," + chunkSize;
-                    } else {
-                        conn = DriverManager.getConnection(DB_URL);
-                        type = 2;
-                        limitStr = " limit OFFSET " + startRow +
-                               " ROWS FETCH NEXT " + chunkSize + " ROWS ONLY";
-                    }
-    
-                    stmt = conn.createStatement();
-    
-                    ResultSet rs;
-                    if ( pType.compareTo("entity") == 0 ) {
-                        logger.info("SQL: " + customSql + limitStr);
-                        rs = stmt.executeQuery(customSql + limitStr);
-                    } else {
-                        logger.info("SQL: " + customSql);
-                        rs = stmt.executeQuery(customSql);
-                    }
-    
-                    // Get column count                
-                    final ResultSetMetaData rsmd = rs.getMetaData();
-                    int columnCount = rsmd.getColumnCount();
-    
-                    // move to last row and get time stamp value
-                    rs.last();
-                    if ( pType.compareTo("entity") == 0 ) {
-                        l_t_stamp = rs.getLong(tstampColName);
-                        nRows = rs.getRow();
-                        String emsg = String.format("RowsExtracted: %d Last_tTtamp: %d", nRows, l_t_stamp);
-                        logger.info(emsg);
-                    } else {
-                        l_t_stampStr = rs.getString(tstampColName);
-                        nRows = rs.getRow();
-                        String emsg = String.format("RowsExtracted: %d Last_tTtamp: %s", nRows, l_t_stampStr);
-                        logger.info(emsg);
-                    }
-                    rs.first();
-                    
-                    // Open csv file and write column headers    
-                    fw = new FileWriter(csvFilePath);
+                // For each row, loop thru the number of columns and write to the csv file
+                int rowCount = 0;
+                while (rs.next()) {
                     for (int i = 1; i <= columnCount; i++) {
-                        fw.append(rs.getMetaData().getColumnName(i));
+                        if (rs.getObject(i) != null) {
+                            String data = rs.getObject(i).toString();
+                            fw.append(data);
+                        } else {
+                            String data = "null";
+                            fw.append(data);
+                        }
                         if ( i < columnCount ) fw.append(",");
                     }
                     fw.append(System.getProperty("line.separator"));
-        
-                    // For each row, loop thru the number of columns and write to the csv file
-                    int rowCount = 0;
-                    while (rs.next()) {
-                        // if ( rs.getLong(tstampColName) < l_t_stamp) {
-                            for (int i = 1; i <= columnCount; i++) {
-                                if (rs.getObject(i) != null) {
-                                    String data = rs.getObject(i).toString();
-                                    fw.append(data);
-                                } else {
-                                    String data = "null";
-                                    fw.append(data);
-                                }
-                                if ( i < columnCount ) fw.append(",");
-                            }
-                            fw.append(System.getProperty("line.separator"));
-                            rowCount += 1;
-                        // }
-                    }
-                    fw.flush();
-                    fw.close();
-                   
-                    conn.close();
+                    rowCount += 1;
+                }
+                fw.flush();
+                fw.close();
+               
+                // move to last row and get time stamp value
+                rs.last();
+                if ( pType.compareTo("entity") == 0 ) {
+                    l_t_stamp = rs.getLong(tstampColName);
+                    nRows = rs.getRow();
+                    String emsg = String.format("RowsExtracted: %d Last_tTtamp: %d", nRows, l_t_stamp);
+                    logger.info(emsg);
+                } else {
+                    l_t_stampStr = rs.getString(tstampColName);
+                    nRows = rs.getRow();
+                    String emsg = String.format("RowsExtracted: %d Last_tTtamp: %s", nRows, l_t_stampStr);
+                    logger.info(emsg);
+                }
 
-                    // get extracted csv file size
-                    long csvFileSize = 0;
-                    long prCsvFileSize = 0;
-                    try {
-                        File exfile = new File(csvFilePath);
-                        csvFileSize = exfile.length();
-                    } catch (Exception e) {}
+                conn.close();
 
-                    String dmsg = String.format("Data extracted: columns=%d  rows=%d\n", columnCount, rowCount); 
-                    logger.info(dmsg);
+                // get extracted csv file size
+                long csvFileSize = 0;
+                long prCsvFileSize = 0;
+                try {
+                    File exfile = new File(csvFilePath);
+                    csvFileSize = exfile.length();
+                } catch (Exception e) {}
+
+                String dmsg = String.format("Data extracted: columns=%d  rows=%d\n", columnCount, rowCount); 
+                logger.info(dmsg);
    
-                    // Run script is specified
-                    if ( startRow == 1 && sampleEventCount == -1 ) {
-                        logger.info("First chunk is already sent using MQTT during registration process.");
-                    } else {
-                        String[] command ={pythonPath, scriptPath, tableName, applyDDL}; 
-                        // logger.info("Execute action script: " + scriptPath);
-                        ProcessBuilder pb = new ProcessBuilder(command);
-                        try {
-                            Process p = pb.start();
-                            p.waitFor();
-                            p.destroy();
-                            // logger.info("Script is executed.");
-                         } catch (Exception e) {
-                            logger.info("Exception during execution of action script." + e.getMessage());
-                        }
-                    
-                        // Upload data using batch insert
-                        int nuploaded = 0;
-                        if (rowCount > 0 && runMode == 0) {
-                            nuploaded = batchInsert(datalake, tableName, ddlFilePath, prCsvFilePath);
-                        } else {
-                            nuploaded = columnCount;
-                        }
-
-                        // get processed csv file size
-                        try {
-                            File prfile = new File(prCsvFilePath);
-                            prCsvFileSize = prfile.length();
-                        } catch (Exception e) {}
-
-                        // oepn file to write processed data
-                        if ( nuploaded > 0 || rowCount == 0 ) {
-                            fw = new FileWriter(prcFilePath);
-                            String procRec = "{ \"processed\":" + nuploaded + ", \"uploaded\":\"Y\" }";
-                            fw.write(procRec);
-                            fw.flush();
-                            fw.close();
-                        }
-                    }
-        
-                    if ( nRows < chunkSize || useChunk == false  ) {
-                        getNextChunk = false;
-                    }
-                    
-                    // Update data offset file
-                    // read number of rows processed by script
-                    int nprocessed = chunkSize;
-                    String uploaded = "N";
-                    try {
-                        String prcfContent = new String ( Files.readAllBytes( Paths.get(prcFilePath)));
-                        JSONObject prcfObject = new JSONObject(prcfContent);
-                        nprocessed = prcfObject.getInt("processed");
-                        uploaded = prcfObject.getString("uploaded");
-                        String msg2 = String.format("Processsed: %d, uploaded: %s", nprocessed, uploaded);
-                        logger.info(msg2);
-                    }
-                    catch (Exception e) {
-                        logger.info("Invalid nprocessed data, set to chunkSize." + e.getMessage());
-                        nprocessed = chunkSize;
-                    }
-    
-                    // break the loop if data is not uploaded successfully
-                    if ( uploaded.compareTo("N") == 0 ) { 
-                        logger.info("Failed to upload processed data.");
-                        break;
-                    }
-
-                    // write upload stats for accounting
-                    Timestamp ts = new Timestamp(System.currentTimeMillis());
-                    String curTime = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss").format(ts);
-                    String statsMsg = String.format(
-                        "%s  ExtSize=%d TransSize=%d ExtCols=%d ExtRows=%d ProcRows=%d Uploaded=%s LastRecTS=%d\n",
-                        curTime, csvFileSize, prCsvFileSize, columnCount, rowCount, nprocessed, uploaded, l_t_stamp);
-                    fwStats.write(statsMsg);
-                    fwStats.flush();
- 
-                    // write offset location
-                    startRow = startRow + nprocessed;
-                    fw = new FileWriter(offFilePath);
-                    String offsetRec = "{ \"startRow\":" + startRow + ", \"t_stamp\":" + l_t_stamp + " }";
-                    fw.write(offsetRec);
-                    fw.flush();
-                    fw.close();
-    
-                    // remove temprary process file
-                    File file = new File(prcFilePath);
-                    file.delete();
-
-                    try {
-                        Thread.sleep(5000);
-                    } catch (Exception e) {}
-
-                    // For testMode stop the loop
-                    if ( runMode == 2 ) {
-                        getNextChunk = false;
-                        logger.info("Test mode is enabled. Stop chuck processing loop");
-                    }
-                }
-        
-            } else {
-
-                // Data is extracted using customer provided option 
-                // - CSV file should be present, get table header from data lake and upload the data
-
-                // For prep and upload action, get table column names from data lake
-                // only before first extraction of data from SCADA
-                String applyDDL = "false";
-                if ( collist.length() == 0 ) {
-                    if ( getDB2TableHeaders(datalake, tableName, clnFilePath) == 1 ) {
-                        logger.info("Failed to get table column names from Data Lake" + tableName);
-                        applyDDL = "true";
-                    }
-                }
-
-                // create table if needed
-                if ( applyDDL.compareTo("true") == 0 ) {
-                    if ( createTable(datalake, tableName, ddlFilePath) == 1 ) {
-                        logger.info("Failed to create table in Data Lake: table name " + tableName);
-                    } else {
-                        // get table headers from data lake
-                        if ( getDB2TableHeaders(datalake, tableName, clnFilePath) == 1 ) {
-                            logger.info("Failed to get column names from Data Lake table " + tableName);
-                        }
-                    }
-                }
-
+                // Run script is specified
                 String[] command ={pythonPath, scriptPath, tableName, applyDDL}; 
-                logger.info("Execute action script: " + scriptPath);
+                // logger.info("Execute action script: " + scriptPath);
                 ProcessBuilder pb = new ProcessBuilder(command);
                 try {
                     Process p = pb.start();
                     p.waitFor();
                     p.destroy();
-                    logger.info("Script is executed.");
-                } catch (Exception e) {
+                    // logger.info("Script is executed.");
+                 } catch (Exception e) {
                     logger.info("Exception during execution of action script." + e.getMessage());
                 }
-
+                
                 // Upload data using batch insert
-                batchInsert(datalake, tableName, ddlFilePath, prCsvFilePath);
-            }
+                int nuploaded = 0;
+                if (rowCount > 0 && runMode == 0) {
+                    nuploaded = batchInsert(datalake, tableName, ddlFilePath, prCsvFilePath);
+                } else {
+                    nuploaded = rowCount;
+                }
 
+                // get processed csv file size
+                try {
+                    File prfile = new File(prCsvFilePath);
+                    prCsvFileSize = prfile.length();
+                } catch (Exception e) {}
+
+                // oepn file to write processed data
+                if ( nuploaded > 0 || rowCount == 0 ) {
+                    fw = new FileWriter(prcFilePath);
+                    String procRec = "{ \"processed\":" + nuploaded + ", \"uploaded\":\"Y\" }";
+                    fw.write(procRec);
+                    fw.flush();
+                    fw.close();
+                }
+    
+                if ( nRows < chunkSize || useChunk == false  ) {
+                    getNextChunk = false;
+                }
+                
+                // Update data offset file
+                // read number of rows processed by script
+                int nprocessed = chunkSize;
+                String uploaded = "N";
+                try {
+                    String prcfContent = new String ( Files.readAllBytes( Paths.get(prcFilePath)));
+                    JSONObject prcfObject = new JSONObject(prcfContent);
+                    nprocessed = prcfObject.getInt("processed");
+                    uploaded = prcfObject.getString("uploaded");
+                    String msg2 = String.format("Processsed: %d, uploaded: %s", nprocessed, uploaded);
+                    logger.info(msg2);
+                }
+                catch (Exception e) {
+                    logger.info("Invalid nprocessed data, set to chunkSize." + e.getMessage());
+                    nprocessed = chunkSize;
+                }
+
+                // break the loop if data is not uploaded successfully
+                if ( uploaded.compareTo("N") == 0 ) { 
+                    logger.info("Failed to upload processed data.");
+                    break;
+                }
+
+                // Write upload stats for accounting and offsetRec for next update
+                // Do not close stats file
+                String statsMsg = "";
+                String offsetRec = "";
+                startRow = startRow + nprocessed;
+                Timestamp ts = new Timestamp(System.currentTimeMillis());
+                String curTime = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss").format(ts);
+                if ( pType.compareTo("entity") == 0 ) {
+                    statsMsg = String.format(
+                        "%s, %d, %d, %d, %d, %d, %s, %d\n",
+                        curTime, csvFileSize, columnCount, rowCount, prCsvFileSize, nprocessed, uploaded, l_t_stamp);
+                    offsetRec = "{ \"startRow\":" + startRow + ", \"t_stamp\":" + l_t_stamp + " }";
+                } else {
+                    statsMsg = String.format(
+                        "%s, %d, %d, %d, %d, %d, %s, %s\n",
+                        curTime, csvFileSize, columnCount, rowCount, prCsvFileSize, nprocessed, uploaded, l_t_stampStr);
+                    offsetRec = "{ \"startRow\":" + startRow + ", \"t_stamp\":\"" + l_t_stampStr + "\" }";
+                }
+                fwStats.write(statsMsg);
+                fwStats.flush();
+                fw = new FileWriter(offFilePath);
+                fw.write(offsetRec);
+                fw.flush();
+                fw.close();
+
+                // remove temprary process file
+                File file = new File(prcFilePath);
+                file.delete();
+
+                try {
+                    Thread.sleep(5000);
+                } catch (Exception e) {}
+
+                // For testMode stop the loop
+                if ( runMode == 2 ) {
+                    getNextChunk = false;
+                    logger.info("Test mode is enabled. Stop chuck processing loop");
+                }
+            }
+        
             logger.info("Data processing cycle is complete.");
 					
         } catch (Exception ex) {

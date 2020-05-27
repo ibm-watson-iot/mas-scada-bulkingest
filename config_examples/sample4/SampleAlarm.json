@@ -40,7 +40,7 @@
     ],
     "renameColumns": {},
     "interfaceEvents": {
-        "id": "integer",
+        "alarmid": "integer",
         "eventid": "string",
         "displaypath": "string",
         "priority": "integer",
@@ -50,7 +50,7 @@
         "value": "double"
     },
     "interfaceRequired": [
-        "id",
+        "alarmid",
         "eventid",
         "displaypath",
         "priority",
