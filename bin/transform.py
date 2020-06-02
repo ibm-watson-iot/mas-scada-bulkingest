@@ -293,11 +293,6 @@ if __name__ == "__main__":
         if ddl == "true":
             applyDDL = True
 
-    userHome = str(Path.home())
-    defaultDir = userHome + "/ibm/masdc"
-    installDir = os.getenv('IBM_DATAINGEST_INSTALL_DIR', defaultDir)
-    dataDir = os.getenv('IBM_DATAINGEST_DATA_DIR', defaultDir)
-
     # Create log directories
     dirperm = 0o755
     retval = utils.createDir(dataDir, "volume", dirperm)

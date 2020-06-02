@@ -65,12 +65,26 @@ if __name__ == "__main__":
     retval += utils.createDir(dataDir, "volume/data", dirperm)
     retval += utils.createDir(dataDir, "volume/data/csv", dirperm)
 
-    # entity config file
+    # Open run type log file
+    rtypeLogPath = dataDir + "/volume/logs/" + rtype + "log"
+    rfile = pathlib.Path(rtypeLogPath)
+    if rfile.exists():
+        rlfd = open(rtypeLogPath, "a+")
+    else:
+        rlfd = open(rtypeLogPath, "w+")
+    rlfd.write("------------------------------------------- \n")
+    rlfd.write("Start " + rtype + " processing.\n")
+    now = datetime.datetime.now()
+    dateStr = now.strftime("%m/%d/%Y, %H:%M:%S")
+    rlfd.write("Date: " + dateStr + "\n")
+
+    # Read run type configuration file
     entityDataFile = ''
     if rtype == 'alarm':
         entityDataFile = dataDir + "/volume/config/alarm.dat"
     else:
         entityDataFile = dataDir + "/volume/config/entity.dat"
+    rlfd.write("Use data file: " + entityDataFile + "\n")
     foundFile = 0
     dtype = ""
     while foundFile == 0:
@@ -83,11 +97,16 @@ if __name__ == "__main__":
                 foundFile = 1
             except:
                 print("Invalid entity data file") 
+                rlfd.write("Invalid entity data file. \n") 
             fp.close()
         else:
             runtype='start'
+            rlfd.write("Waiting for input data file to get created in config directory. \n")
             time.sleep(15)
 
+    if foundFile == 1:
+        rlfd.write("Found input data file. \n")
+        rlfd.close()
 
     # Create dtype log and data directories
     retval += utils.createDir(dataDir, "volume/logs/"+dtype, dirperm)

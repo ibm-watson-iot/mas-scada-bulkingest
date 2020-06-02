@@ -444,11 +444,6 @@ if __name__ == "__main__":
 
     print("Start registration cycle for type: " + type)
 
-    # userHome = str(Path.home())
-    # defaultDir = userHome + "/ibm/masdc"
-    # installDir = os.getenv('IBM_DATAINGEST_INSTALL_DIR', defaultDir)
-    # dataDir = os.getenv('IBM_DATAINGEST_DATA_DIR', defaultDir)
-
     # Create log directories
     dirperm = 0o755
     retval = utils.createDir(dataDir, "volume", dirperm)
