@@ -77,99 +77,42 @@ def transformInputCSV(dataPath, interfaceId, inputFile, outputFile, type, conncf
     entityData = config['entityData']
     eventData = config['eventData']
     tStamp = eventData['timestamp']
-    columnMaps = config['renameColumns']
-    if len(columnMaps) == 0:
 
-        # make column header uppercase
-        df.columns = map(str.upper, df.columns)
+    # make column header uppercase
+    df.columns = map(str.upper, df.columns)
 
-        # set fixed columns
-        if 'DEVICETYPE' not in df.columns:
-            df['DEVICETYPE'] = type.strip()
-        if 'DEVICEID' not in df.columns:
-            df['DEVICEID'] = entityData['deviceIdPrefix']
-        df['LOGICALINTERFACE_ID'] = interfaceId
-        if 'EVENTTYPE' not in df.columns:
-            df['EVENTTYPE'] = type.strip()+"Event"
-        df['FORMAT'] = "JSON"
-        if tStamp != "":
-            tStampCol = tStamp.upper()
-            df['RCV_TIMESTAMP_UTC'] = df[tStampCol]
-        else:
-            df['RCV_TIMESTAMP_UTC'] = curtime
-        df['UPDATED_UTC'] = df['RCV_TIMESTAMP_UTC']
-
-
-        if tStamp != "":
-            tStampCol = tStamp.upper()
-            discardColumn = [ tStampCol ]
-            df = df.drop(discardColumn, axis=1)
-
-        logger.info("Rename Columns:")
-        logger.info(columnTitles)
-        logger.info(len(columnTitles))
-        if len(columnTitles) > 0:
-            df = df.reindex(columns=columnTitles)
-
-        # Write updated data frame into a CSV file
-        rowsProcessed = len(df)
-
-        logger.info("Transformed File: " + outputFile)
-        df.to_csv(outputFile, index = False)
-
+    # set fixed columns
+    if 'DEVICETYPE' not in df.columns:
+        df['DEVICETYPE'] = type.strip()
+    if 'DEVICEID' not in df.columns:
+        df['DEVICEID'] = entityData['deviceIdPrefix']
+    df['LOGICALINTERFACE_ID'] = interfaceId
+    if 'EVENTTYPE' not in df.columns:
+        df['EVENTTYPE'] = type.strip()+"Event"
+    df['FORMAT'] = "JSON"
+    if tStamp != "":
+        tStampCol = tStamp.upper()
+        df['RCV_TIMESTAMP_UTC'] = df[tStampCol]
     else:
+        df['RCV_TIMESTAMP_UTC'] = curtime
+    df['UPDATED_UTC'] = df['RCV_TIMESTAMP_UTC']
 
-        # Process table if column maps are defined. Since there is a possibility of 
-        # different events sent by the device at the same time, some aggregation is needed.
-        # To handle this case, a new dataframe needs to be created.
+    if tStamp != "":
+        tStampCol = tStamp.upper()
+        discardColumn = [ tStampCol ]
+        df = df.drop(discardColumn, axis=1)
 
-        columnMaps = config['renameColumns']
-        evtNameCol = columnMaps["evtType"]
-        evtDataTypeCol = columnMaps["evtDataType"]
-        evtTSCol = columnMaps["evtTimestamp"]
-        evtValueCol = columnMaps["evtValue"]
-        etypes = df[evtNameCol].unique().tolist()
-        dtypes = df[evtDataTypeCol].unique().tolist()
-        tstamps = df[evtTSCol].unique().tolist()
-        evtCols = []
-        for etype in etypes:
-            dtype = df.loc[df[evtNameCol] == etype].iloc[0][evtDataTypeCol]
-            if dtype not in config.ignoreDataType:
-                evtCols.append(etype)
-        evtCols.append(evtTSCol)
+    logger.info("Rename Columns:")
+    logger.info(columnTitles)
+    logger.info(len(columnTitles))
+    if len(columnTitles) > 0:
+        df = df.reindex(columns=columnTitles)
 
-        ndf = pd.DataFrame(columns = evtCols)
+    # Write updated data frame into a CSV file
+    rowsProcessed = len(df)
 
-        i=0
-        # for ts in tstamps:
-        while i < len(tstamps)-1:
-            ts = tstamps[i]
-            sdf = df[df[evtTSCol] == ts]
-            rowsProcessed += len(sdf)
-            ndf.loc[len(ndf)] = 0
-            for index, row in sdf.iterrows():
-                if row[evtDataTypeCol] not in config.ignoreDataType:
-                    ndf.at[i, row[evtNameCol]] = row[evtValueCol]
-            ndf.at[i, evtTSCol] = ts
-            i += 1
-
-        ndf['DEVICETYPE'] = type.strip()
-        ndf['DEVICEID'] = entityData['deviceIdPrefix']
-        ndf['LOGICALINTERFACE_ID'] = interfaceId
-        ndf['EVENTTYPE'] = type.strip()+"Event"
-        ndf['FORMAT'] = "JSON"
-        ndf['RCV_TIMESTAMP_UTC'] = curtime
-        ndf['UPDATED_UTC'] = ndf['RCV_TIMESTAMP_UTC']
-
-        # make column header uppercase
-        ndf.columns = map(str.upper, ndf.columns)
-
-        # Write updated data frame into a CSV file
-        logger.info("Transformed File: " + outputFile)
-        if len(columnTitles) > 0:
-            ndf = ndf.reindex(columns=columnTitles)
-        ndf.to_csv(outputFile, index = False)
-        del ndf
+    logger.info("Transformed File: " + outputFile)
+    df.to_csv(outputFile, index = False)
 
     logger.info("Number of rows processed: " + str(rowsProcessed));
     return rowsProcessed, df

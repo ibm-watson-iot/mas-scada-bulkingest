@@ -253,22 +253,8 @@ def evtMapCreate(dataPath, config, type, df):
     events = {}
     dataTypes = []
     evtCols = config['interfaceEvents']
-    if len(evtCols) > 0:
-        for key, value in evtCols.items():
-            events[str(key)] = '$event.'+str(key)
-    else:
-        if len(config['renameColumns']) == 0:
-            for col in df.columns:
-                if 'deviceColumn' in config['entityData']:
-                    if str(col) != 'deviceId':
-                        events[str(col)] = '$event.'+str(col)
-                else:
-                    events[str(col)] = '$event.'+str(col)
-        else:
-            evtCols, dataTypes = getEventsAndDataTypes(dataPath, config, type)
-            for evt in evtCols:
-                events[str(evt)] = '$event.'+str(evt)
-
+    for key, value in evtCols.items():
+        events[str(key)] = '$event.'+str(key)
     evtMap[str(type)+'Event'] = events
     json_data = json.dumps(evtMap, indent=4)
     evtMapFD.write(json_data)

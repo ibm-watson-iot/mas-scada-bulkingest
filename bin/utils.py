@@ -155,6 +155,12 @@ def normalizeDataFrame(dataPath, inputFile, config, regreq):
     df = pd.read_csv(dataPath+'/csv/'+inputFile)
     print(df)
 
+    # Rename columns
+    if 'renameColumns' in config:
+        if len(config['renameColumns']) > 0:
+            logger.info("Apply column rename rules")
+            df.rename(columns=config['renameColumns'], inplace=True)
+
     # process tagpath if set
     setDimensions = False
     tagpath = ""
