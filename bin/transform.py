@@ -375,7 +375,7 @@ if __name__ == "__main__":
         intfDoneFD = open(intfDoneFile, "r")
         interfaceId = intfDoneFD.readline()
         intfDoneFD.close()
-        logger.info("Read Logical Interface ID: " + logicalInterfaceId)
+        logger.info("Read Logical Interface ID: " + interfaceId)
 
     # Transform input CSV file
     outputFile = dataPath+type+'/data/'+type+'.csv'
