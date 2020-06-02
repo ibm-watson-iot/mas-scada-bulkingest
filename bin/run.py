@@ -46,6 +46,7 @@ logger = logging.getLogger('dataingest')
 # Main
 #
 if __name__ == "__main__":
+    global rlfd
 
     # Command line options
     try:
@@ -66,7 +67,7 @@ if __name__ == "__main__":
     retval += utils.createDir(dataDir, "volume/data/csv", dirperm)
 
     # Open run type log file
-    rtypeLogPath = dataDir + "/volume/logs/" + rtype + "log"
+    rtypeLogPath = dataDir + "/volume/logs/" + rtype + ".log"
     rfile = pathlib.Path(rtypeLogPath)
     if rfile.exists():
         rlfd = open(rtypeLogPath, "a+")
@@ -77,6 +78,7 @@ if __name__ == "__main__":
     now = datetime.datetime.now()
     dateStr = now.strftime("%m/%d/%Y, %H:%M:%S")
     rlfd.write("Date: " + dateStr + "\n")
+    rlfd.flush()
 
     # Read run type configuration file
     entityDataFile = ''
@@ -98,14 +100,17 @@ if __name__ == "__main__":
             except:
                 print("Invalid entity data file") 
                 rlfd.write("Invalid entity data file. \n") 
+                rlfd.flush()
             fp.close()
         else:
             runtype='start'
             rlfd.write("Waiting for input data file to get created in config directory. \n")
+            rlfd.flush()
             time.sleep(15)
 
     if foundFile == 1:
         rlfd.write("Found input data file. \n")
+        rlfd.flush()
         rlfd.close()
 
     # Create dtype log and data directories
