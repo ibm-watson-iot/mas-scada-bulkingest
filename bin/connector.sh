@@ -28,7 +28,7 @@ then
     export PATH
     if [ "$1" == "alarm" ]
     then
-        ${PYTHON_HOME}/python ${DI_BIN}/alarm.py "$@"
+        ${PYTHON_HOME}/python ${DI_BIN}/entity.py "$@"
     else
         ${PYTHON_HOME}/python ${DI_BIN}/entity.py "$@"
     fi
@@ -37,7 +37,7 @@ else
     export PATH
     if [ "$1" == "alarm" ]
     then
-        python3 ${DI_BIN}/alarm.py "$@"
+        python3 ${DI_BIN}/entity.py "$@"
     else
         python3 ${DI_BIN}/entity.py "$@"
     fi

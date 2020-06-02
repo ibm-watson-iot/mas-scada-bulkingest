@@ -19,6 +19,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.Map;
 import java.sql.*;
+import java.sql.Types.*;
 import java.nio.file.*;
 import java.util.logging.*;
 import java.util.Date;
@@ -61,8 +62,10 @@ public class DBConnector {
     static String insertSQL = "";
     static String sortStr = "";
     static int chunkSize = 50000;
+    static int sampleChunkSize = 5;
     static int scanInterval = 120;
     static int batchInsertSize = 10000;
+    static boolean formatSqlStatement = false;
     static String customSql = "";
     static String customSqlFile = "";
     static int sampleEventCount = 1;
@@ -74,6 +77,7 @@ public class DBConnector {
     static FileWriter fwStats;
     static String pType = "";
     static int runMode = 0;
+    static int colsProcessed = 0;
     
 
     /**
@@ -139,7 +143,8 @@ public class DBConnector {
             connConfigFile = dataDir + "/volume/config/connection.json";
             tableConfigFile = dataDir + "/volume/config/" + tableName + ".json";
             tableRunStatusFile = dataDir + "/volume/config/" + tableName + ".running";
-            uploadStatsFile = dataDir + "/volume/data/" + tableName + "/data/uploadStats.dat";
+            offFilePath = dataDir + "/volume/config/" + tableName + ".offset";
+            uploadStatsFile = dataDir + "/volume/data/" + tableName + "/data/" + tableName + "_uploadStats.dat";
 
             // Get SCADA historian database configuration
             logger.info("Read connection configuration file: " + connConfigFile);
@@ -166,9 +171,10 @@ public class DBConnector {
             JSONObject dbConfig = tableConfig.getJSONObject("database");
             JSONObject eventData = tableConfig.getJSONObject("eventData");
             chunkSize = dbConfig.getInt("fetchSize");
+            sampleChunkSize = dbConfig.optInt("sampleFetchSize", 5);
             scanInterval = dbConfig.getInt("scanInterval");
+            formatSqlStatement = dbConfig.getBoolean("formatSqlStatement");
             customSqlFile = dbConfig.getString("sqlFile");
-            customSql = dbConfig.getString("sqlStatement");
             sampleEventCount = tableConfig.getInt("mqttEvents");
             batchInsertSize = dbConfig.getInt("insertSize");
             tstampColName = eventData.getString("timestamp");
@@ -180,15 +186,18 @@ public class DBConnector {
             logger.info(msg);
 
             // Read customSql statement from file, if file is specified
-            if (customSqlFile.compareTo("") != 0) {
-                String custSqlFilePath = dataDir + "/volume/config/" + customSqlFile;
-                customSql = new String(Files.readAllBytes(Paths.get(custSqlFilePath)));
+            String custSqlFilePath;
+            if (formatSqlStatement == true) {
+                custSqlFilePath = dataDir + "/volume/data/" + tableName + "/data/" + tableName + ".sql";
+            } else {
+                custSqlFilePath = dataDir + "/volume/config/" + customSqlFile;
             }
+            customSql = new String(Files.readAllBytes(Paths.get(custSqlFilePath)));
+
            
             // data files 
             csvFilePath = dataDir + "/volume/data/csv/" + tableName + ".csv";
             prcFilePath = dataDir + "/volume/data/" + tableName + "/data/.processed";
-            offFilePath = dataDir + "/volume/data/" + tableName + "/data/.dataOffset";
             clnFilePath = dataDir + "/volume/data/" + tableName + "/schemas/" + tableName + ".dcols";
             smpFilePath = dataDir + "/volume/data/" + tableName + "/schemas/.sampleEventSent";
             prCsvFilePath = dataDir + "/volume/data/" + tableName + "/data/" + tableName + ".csv";
@@ -196,9 +205,22 @@ public class DBConnector {
 
             // Open stats file for accounting
             // A CSV file with the following data
-            // Log Time, Extracted Size, Extracted Column, Extracted Rows, 
-            // Transformed Size, Processed Rows, Uploaded, TS of last record
-            fwStats = new FileWriter(uploadStatsFile);
+            // LogTime, Extract Size,Columns,Rows, Upload Size,Columns,Rows, UploadStatus, TSLastRecord 
+
+            //
+            // If a new file, add header
+            File tmpUploadFile = new File(uploadStatsFile);
+            if ( tmpUploadFile.exists()) {
+                logger.info("Open an existing upload stats file");
+                fwStats = new FileWriter(uploadStatsFile, true);
+            } else {
+                logger.info("Open a new upload stats file");
+                fwStats = new FileWriter(uploadStatsFile, true);
+                String statsHeader = String.format("logTime,extSize,extCols,extRows,upSize,upCols,upRows,uploaded,tsLastRec\n");
+                fwStats.write(statsHeader);
+                fwStats.flush();
+
+            }
 
             // Extract sample data, identify entiries and register with WIoTP
             // skip if smpFilePath exist
@@ -206,11 +228,6 @@ public class DBConnector {
             if ( smpSendFile.exists()) {
                 logger.info("Skip registration - sample send file exists.");
             } else {
-                if ( pType.compareTo("entity") == 0 ) {
-                    int norows = getnorows();
-                    String msg1 = String.format("Number of records in source database: %d\n", norows);
-                    logger.info(msg1);
-                }
                 register();
             }
 
@@ -240,57 +257,6 @@ public class DBConnector {
             logger.info("Exception information: " + ex.getMessage());
             ex.printStackTrace();
         }
-    }
-
-
-    // Get number of rows in source database
-    private static int getnorows() {
-        Connection conn = null;
-        Statement stmt = null;
-        int numRows = 0;
-        try {
-            if ( dbType.compareTo("none") != 0 ) {
-                // DB connection
-                logger.info("Connecting to database to extract data from " + tableName);
-                boolean getNextChunk = true;
-                int type = 1;
-                String DB_URL = "jdbc:sqlserver://"+sourceHost+":"+sourcePort+";databaseName="+sourceDatabase+";user="+
-                    sourceUser+";password="+sourcePassword;
-                if ( dbType.compareTo("mysql") == 0 ) {
-                    DB_URL = "jdbc:mysql://" + sourceHost + "/" + sourceSchema;
-                    conn = DriverManager.getConnection(DB_URL, sourceUser, sourcePassword);
-                } else {
-                    conn = DriverManager.getConnection(DB_URL);
-                    type = 2;
-                }
-
-                String sqlStr = "";
-                stmt = conn.createStatement();
-
-                // get number of rows in the table
-                String [] tmpParts = customSql.split(" ");
-                String fromStr = "";
-                for (int i=0; i<tmpParts.length; i++) {
-                    String tmpstr = tmpParts[i];
-                    if (tmpstr.compareTo("from") == 0) {
-                        fromStr = tmpParts[i+1];
-                        sqlStr = "select count(*) from " + fromStr;
-                        ResultSet rs = stmt.executeQuery(sqlStr);
-                        while(rs.next()) {
-                            numRows = rs.getInt("count(*)");
-                        }
-                        rs.close();
-                        break;
-                    }
-                }
-
-                stmt.close();
-                conn.close();
-            }
-        } catch (Exception ex) {
-            logger.info("Exception information: " + ex.getMessage());
-        }
-        return numRows;
     }
 
 
@@ -327,9 +293,9 @@ public class DBConnector {
 
                 // retrieve one record
                 if ( type == 1 ) {
-                    sqlStr = customSql + " LIMIT 0,5";
+                    sqlStr = customSql + " LIMIT 0," + sampleChunkSize;
                 } else {
-                    sqlStr = customSql + " OFFSET 1 ROWS FETCH NEXT 5 ROWS ONLY";
+                    sqlStr = customSql + " OFFSET 1 ROWS FETCH NEXT " + sampleChunkSize + " ROWS ONLY";
                 }
      
                 logger.info("SQL: " + sqlStr);
@@ -457,7 +423,7 @@ public class DBConnector {
             String limitStr = "";
             long t_stamp = 0;
             long l_t_stamp  = 0;
-            String l_t_stampStr  = "";
+            int l_t_stamp_convert = -1;
             int nRows = 0;
             while ( getNextChunk ) {
                 // Set limit and offset
@@ -492,18 +458,30 @@ public class DBConnector {
                 logger.info("SQL: " + customSql + limitStr);
                 rs = stmt.executeQuery(customSql + limitStr);
 
-                // Get column count                
+                // Get column count and column type of TS column
                 final ResultSetMetaData rsmd = rs.getMetaData();
                 int columnCount = rsmd.getColumnCount();
+            
 
                 // Open csv file and write column headers    
                 fw = new FileWriter(csvFilePath);
                 for (int i = 1; i <= columnCount; i++) {
-                    fw.append(rs.getMetaData().getColumnName(i));
+                    String colName = rsmd.getColumnName(i);
+                    fw.append(colName);
+                    if (l_t_stamp_convert == -1 ) {
+                        if ( colName.compareTo(tstampColName) == 0 ) {
+                            if (rsmd.getColumnType(i) == java.sql.Types.BIGINT || rsmd.getColumnType(i) == java.sql.Types.INTEGER) {
+                                l_t_stamp_convert = 0;
+                            } else {
+                                l_t_stamp_convert = 1;
+                            }
+                            logger.info("Convert TS flag for column " + colName + " = " + l_t_stamp_convert); 
+                        }
+                    }
                     if ( i < columnCount ) fw.append(",");
                 }
                 fw.append(System.getProperty("line.separator"));
-    
+
                 // For each row, loop thru the number of columns and write to the csv file
                 int rowCount = 0;
                 while (rs.next()) {
@@ -525,17 +503,14 @@ public class DBConnector {
                
                 // move to last row and get time stamp value
                 rs.last();
-                if ( pType.compareTo("entity") == 0 ) {
+                nRows = rs.getRow();
+                if ( l_t_stamp_convert == 0 ) {
                     l_t_stamp = rs.getLong(tstampColName);
-                    nRows = rs.getRow();
-                    String emsg = String.format("RowsExtracted: %d Last_tTtamp: %d", nRows, l_t_stamp);
-                    logger.info(emsg);
-                } else {
-                    l_t_stampStr = rs.getString(tstampColName);
-                    nRows = rs.getRow();
-                    String emsg = String.format("RowsExtracted: %d Last_tTtamp: %s", nRows, l_t_stampStr);
-                    logger.info(emsg);
-                }
+                } else if ( l_t_stamp_convert == 1 ) {
+                    l_t_stamp = Timestamp.valueOf(rs.getString(tstampColName)).getTime();
+                } 
+                String emsg = String.format("RowsExtracted: %d Last_tTtamp: %d", nRows, l_t_stamp);
+                logger.info(emsg);
 
                 conn.close();
 
@@ -566,8 +541,10 @@ public class DBConnector {
                 // Upload data using batch insert
                 int nuploaded = 0;
                 if (rowCount > 0 && runMode == 0) {
+                    colsProcessed = 0;
                     nuploaded = batchInsert(datalake, tableName, ddlFilePath, prCsvFilePath);
                 } else {
+                    colsProcessed = 0;
                     nuploaded = rowCount;
                 }
 
@@ -620,17 +597,10 @@ public class DBConnector {
                 startRow = startRow + nprocessed;
                 Timestamp ts = new Timestamp(System.currentTimeMillis());
                 String curTime = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss").format(ts);
-                if ( pType.compareTo("entity") == 0 ) {
-                    statsMsg = String.format(
-                        "%s, %d, %d, %d, %d, %d, %s, %d\n",
-                        curTime, csvFileSize, columnCount, rowCount, prCsvFileSize, nprocessed, uploaded, l_t_stamp);
-                    offsetRec = "{ \"startRow\":" + startRow + ", \"t_stamp\":" + l_t_stamp + " }";
-                } else {
-                    statsMsg = String.format(
-                        "%s, %d, %d, %d, %d, %d, %s, %s\n",
-                        curTime, csvFileSize, columnCount, rowCount, prCsvFileSize, nprocessed, uploaded, l_t_stampStr);
-                    offsetRec = "{ \"startRow\":" + startRow + ", \"t_stamp\":\"" + l_t_stampStr + "\" }";
-                }
+                statsMsg = String.format(
+                    "%s, %d, %d, %d, %d, %d, %d, %s, %d\n",
+                    curTime, csvFileSize, columnCount, rowCount, prCsvFileSize, colsProcessed, nprocessed, uploaded, l_t_stamp);
+                offsetRec = "{ \"startRow\":" + startRow + ", \"t_stamp\":" + l_t_stamp + " }";
                 fwStats.write(statsMsg);
                 fwStats.flush();
                 fw = new FileWriter(offFilePath);
@@ -805,6 +775,7 @@ public class DBConnector {
                 logger.info("Number of table columns to be added: " + columns.length);
                 String [] ddlcname = new String[MAX_TABLE_COLUMNS];
                 String [] ddlctype = new String[MAX_TABLE_COLUMNS];
+                colsProcessed = columns.length;
 
                 for (int i=0; i<columns.length; i++) {
                     String [] colParts = columns[i].trim().split(" ");

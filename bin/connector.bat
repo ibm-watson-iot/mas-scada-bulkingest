@@ -11,7 +11,7 @@ REM http://www.eclipse.org/legal/epl-v10.html
 REM (C) Copyright IBM Corp. 2019  All Rights Reserved.
 REM
 
-set DI_HOME="C:\Program Files\IBM\masdc"
+set DI_HOME="C:\IBM\masdc"
 set DI_BIN=%DI_HOME%\bin
 set DI_LIB=%DI_HOME%\lib
 
@@ -19,11 +19,11 @@ set PYTHON_HOME=%DI_HOME%\python-3.7.5
 set PATH=%PATH%;%DI_BIN%;%PYTHON_HOME%
 
 IF "%1"=="alarm" GOTO Alarm
-%PYTHON_HOME%\python.exe %DI_BIN%\entity.py
+%PYTHON_HOME%\python.exe %DI_BIN%\run.py entity
 GOTO End
 
 :Alarm
-%PYTHON_HOME%\python.exe %DI_BIN%\alarm.py
+%PYTHON_HOME%\python.exe %DI_BIN%\run.py alarm
 
 :End
 

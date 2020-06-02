@@ -110,7 +110,10 @@ def set_timestamp_field(row, tStamp, tsConvert, regreq):
 def set_deviceid_field(row, idcolName, prefix, format):
     if prefix != '':
         if format != '':
-            id = prefix + "_" + str(format % row[idcolName]).replace(' ', '0')
+            if format == 'UUID':
+                id = prefix + "_" + row[idcolName].replace('-', '')
+            else:
+                id = prefix + "_" + str(format % row[idcolName]).replace(' ', '0')
         else:
             id = prefix + "_" + row[idcolName]
     else:
@@ -328,5 +331,52 @@ def sendEvent(type, conncfg, df, dataPath, useDeviceId, registerSampleEvent, sam
         f.write("{ \"processed\": %d , \"uploaded\":\"Y\" }" % nevents)
         f.close()
 
+
+
+def getNextExtractionDate(startDate, lastEndTS):
+    cDate = datetime.datetime.today()
+    cDay = cDate.day
+    cMonth = cDate.month
+    cYear = cDate.year
+    lDate = 0
+    lDay = 0
+    lMonth = 0
+    lYear = 0
+    nDay = 0
+    nMonth = 0
+    nYear = 0
+
+    if startDate != '':
+        lDate = datetime.datetime.strptime(startDate, '%Y-%m-%d %H:%M:%S')
+    else:
+        lDate = cDate
+
+    if lastEndTS == 0:
+        nDay = lDate.day
+        nMonth = lDate.month
+        nYear = lDate.year
+    else:
+        lDate = datetime.datetime.fromtimestamp(lastEndTS/1000)
+        lDay = lDate.day
+        lMonth = lDate.month
+        lYear = lDate.year
+        nDate = datetime.datetime.fromtimestamp((lastEndTS/1000)+5)
+        nDay = nDate.day
+        nMonth = nDate.month
+        nYear = nDate.year
+
+    if nYear > cYear:
+        nYear = cYear
+        nMonth = cMonth
+        nDay = cDay
+    elif nYear == cYear:
+        if nMonth > cMonth:
+            nMonth = cMonth
+            nDay = cDay
+        elif nMonth == cMonth:
+            if nDay > cDay:
+                nDay = cDay
+
+    return nDay,nMonth,nYear
 
 

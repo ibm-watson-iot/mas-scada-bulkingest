@@ -3,7 +3,7 @@
 # IBM Maximo Application Suite - SCADA Bulk Data Ingest Connector
 #
 # *****************************************************************************
-# Copyright (c) 2019 IBM Corporation and other Contributors.
+# Copyright (c) 2020 IBM Corporation and other Contributors.
 #
 # All rights reserved. This program and the accompanying materials
 # are made available under the terms of the Eclipse Public License v1.0
@@ -11,45 +11,36 @@
 # http://www.eclipse.org/legal/epl-v10.html
 # *****************************************************************************
 #
-# WIoTP Bulk Data Ingest run script
+# Script to run device data extraction loop from SCADA historian and 
+# Upload to IBM MAS Datalake.
 #
-# TODO: This script is not used on windows. Revisit if this script can be removed.
+# Extraction loop depends on existence of the following file
+# IBM_DATAINGEST_DATA_DIR/volume/config/entity.dat
+#
+# This file should contain configuration file name for the entity type.
+# For example CakebreadType.json
 #
 
 import os
 import json
-from pathlib import Path
+import pathlib
 import logging
 import sys
 import time
+from pathlib import Path
 from os import path
+import datetime
 from datetime import date
 
+userHome = str(Path.home())
+defaultDir = userHome + "/ibm/masdc"
+installDir = os.getenv('IBM_DATAINGEST_INSTALL_DIR', defaultDir)
+dataDir = os.getenv('IBM_DATAINGEST_DATA_DIR', defaultDir)
+dibin = installDir + "/bin"
+sys.path.append(dibin)
+import utils
+
 logger = logging.getLogger('dataingest')
-
-# Create directory in users home directory
-def createDir(dataDir, dirname, permission):
-    if dirname == "":
-        logger.info("Specified directory name is empty.")
-        return 1
-
-    if permission == "":
-        permission = 0o755
-
-    dpath = dataDir + "/" + dirname
- 
-    try:
-        os.mkdir(dpath.strip(), permission)
-    except FileExistsError:
-        logger.warning("The directory %s exists." % dpath)
-    except OSError:
-        logger.error("Failed to create the directory: %s" % dpath)
-        return 1
-    else:
-        logger.info("The directory %s is created." % dpath)
-
-    return 0
-
 
 #
 # Main
@@ -58,27 +49,51 @@ if __name__ == "__main__":
 
     # Command line options
     try:
-        dtype = sys.argv[1]
+        rtype = sys.argv[1]
     except IndexError:
-        print("ERROR: Entity Type is not specified")
-        print("Usage: connector <entity_type> [start|restart]")
+        print("ERROR: Entity or alarm run type is not specified")
+        print("Usage: connector <runtype>")
         exit(1)
 
-    try:
-        runtype = sys.argv[2]
-    except IndexError:
-        runtype='start'
+    runtype='restart'
 
-    userHome = str(Path.home())
-    defaultDir = userHome + "/ibm/masdc"
-    installDir = os.getenv('IBM_DATAINGEST_INSTALL_DIR', defaultDir)
-    dataDir = os.getenv('IBM_DATAINGEST_DATA_DIR', defaultDir)
-
-    # Create log directories
+    # Create directories
     dirperm = 0o755
-    retval = createDir(dataDir, "volume", dirperm)
-    retval += createDir(dataDir, "volume/logs", dirperm)
-    retval += createDir(dataDir, "volume/logs/"+dtype, dirperm)
+    retval = utils.createDir(dataDir, "volume", dirperm)
+    retval += utils.createDir(dataDir, "volume/logs", dirperm)
+    retval += utils.createDir(dataDir, "volume/config", dirperm)
+    retval += utils.createDir(dataDir, "volume/data", dirperm)
+    retval += utils.createDir(dataDir, "volume/data/csv", dirperm)
+
+    # entity config file
+    entityDataFile = ''
+    if rtype == 'alarm':
+        entityDataFile = dataDir + "/volume/config/alarm.dat"
+    else:
+        entityDataFile = dataDir + "/volume/config/entity.dat"
+    foundFile = 0
+    dtype = ""
+    while foundFile == 0:
+        file = pathlib.Path(entityDataFile)
+        if file.exists():
+            fp = open(entityDataFile, 'r')
+            try:
+                line = line = fp.readline()
+                dtype = line.strip()
+                foundFile = 1
+            except:
+                print("Invalid entity data file") 
+            fp.close()
+        else:
+            runtype='start'
+            time.sleep(15)
+
+
+    # Create dtype log and data directories
+    retval += utils.createDir(dataDir, "volume/logs/"+dtype, dirperm)
+    retval += utils.createDir(dataDir, "volume/data/"+dtype, dirperm)
+    dtypedir = "volume/data/" + dtype + "/data"
+    retval += utils.createDir(dataDir, dtypedir, dirperm)
 
     # set log dir
     logdir = dataDir + "/volume/logs/"+dtype
@@ -99,52 +114,76 @@ if __name__ == "__main__":
 
     logger.info("Start Data Ingest cycle")
     logger.info("----------------------------------") 
-    logger.info(" WIoTP Bulk Data Upload Connector ")
+    logger.info(" MAS Data Connector ")
     logger.info("----------------------------------") 
 
-    # Create config and data directories
-    retval = createDir(dataDir, "volume/data", dirperm)
-    retval += createDir(dataDir, "volume/data/csv", dirperm)
-    retval += createDir(dataDir, "volume/config", dirperm)
-
     if retval > 0:
-        logger.error("Failed to create data directories.")
+        logger.error("Failed to create required directories.")
         exit(1)
 
     print("Start processing cycle for entity " + dtype)
     logger.info("Start processing cycle for entity %s", dtype)
 
-    # Get scanInterval from dtype configuration file
+    # Read configuration file
     tableCfgPath = dataDir + "/volume/config/" + dtype + ".json"
+    formatedSqlFilePath = dataDir + "/volume/data/" + dtype + "/data/" + dtype + ".sql"
+    dataOffsetPath = dataDir + "/volume/config/" + dtype + ".offset"
     config = {}
     with open(tableCfgPath) as configFD:
         config = json.load(configFD)
         logger.info("Read entity type config items")
         configFD.close()
 
-    scanInterval = 120
-    tableNameChangeDate = 0
-    sqlStatementFormat = ''
+    # Get sql related config data
+    startDate = ''
+    dateFormat = ''
+    dateChange = 0
+    sqlStatement = ''
     dbconfig = config['database']
-    if 'tableNameChangeDate' in dbconfig:
-        tableNameChangeDate = dbconfig['tableNameChangeDate']
-        if tableNameChangeDate < 0 or tableNameChangeDate > 31:
-            tableNameChangeDate = 0
-    if 'sqlStatementFormat' in dbconfig:
-        sqlStatementFormat = dbconfig['sqlStatementFormat']
+    if 'startDate' in dbconfig:
+        startDate = dbconfig['startDate']
+    sqlFile = dbconfig['sqlFile']
+    sqlFilePath = dataDir + "/volume/config/" + sqlFile;
+    with open(sqlFilePath, 'r') as f:
+        sqlStatement = f.read()
+        f.close()
+    scanInterval = 120
     if 'scanInterval' in dbconfig:
         scanInterval = dbconfig['scanInterval']
     if scanInterval <= 0:
         scanInterval = 120
+    formatSqlStatement = False
+    if 'formatSqlStatement' in dbconfig:
+        formatSqlStatement = dbconfig['formatSqlStatement']
 
     retval = 0
     while retval == 0:
-        today = date.today()
-        if tableNameChangeDate != 0:
-            dbconfig['sqlStatement'] = today.strftime(sqlStatementFormat)
-            configFD = open(tableCfgPath, "r+")
-            configFD.write(json.dumps(config, indent=4))
-            configFD.close()
+        # Get last run record
+        lastEndTS = 0
+        if path.exists(dataOffsetPath) == True:
+            with open(dataOffsetPath) as offsetFD:
+                lrunCfg = json.load(offsetFD)
+                offsetFD.close()
+                if 'lastEndTS' in lrunCfg:
+                    lastEndTS = lrunCfg['lastEndTS']
+        else:
+            # Create a new offset file
+            recStr = '{"startRow":0,"lastEndTS":0}'
+            frs = open(dataOffsetPath, "w")
+            frs.write(recStr)
+            frs.close()
+
+        sqlStatementFormatted = sqlStatement
+        if formatSqlStatement == True:
+            nDay, nMonth, nYear = utils.getNextExtractionDate(startDate, lastEndTS)
+            nextDate = datetime.date(year=nYear,day=nDay,month=nMonth)
+            logger.info(nextDate)
+            sqlStatementFormatted = nextDate.strftime(sqlStatement)
+
+        # write sqlStatement
+        sqfd = open(formatedSqlFilePath, "w")
+        sqfd.write(sqlStatementFormatted)
+        sqfd.close()
 
         dtypeProFile = dataDir + "/volume/config/" + dtype + ".running"
         if runtype == 'start':
@@ -160,14 +199,14 @@ if __name__ == "__main__":
         f.write("{ \"started\": %s }" % dtype)
         f.close()
            
-        retval = createDir(dataDir, "volume/data/" + dtype, dirperm)
-        retval += createDir(dataDir, "volume/data/" + dtype + "/schemas", dirperm)
-        retval += createDir(dataDir, "volume/data/" + dtype + "/data", dirperm)
+        retval = utils.createDir(dataDir, "volume/data/" + dtype, dirperm)
+        retval += utils.createDir(dataDir, "volume/data/" + dtype + "/schemas", dirperm)
+        retval += utils.createDir(dataDir, "volume/data/" + dtype + "/data", dirperm)
         CP = installDir + '/jre/lib/*:' + installDir + '/lib/*'
         if os.name == 'nt':
             CP = installDir + '/jre/lib/*;' + installDir + '/lib/*'
         logger.info("CP: %s", CP)
-        command =  installDir + '/jre/bin/java -classpath "' + CP + '" com.ibm.wiotp.masdc.DBConnector ' + dtype + ' register'
+        command =  installDir + '/jre/bin/java -classpath "' + CP + '" com.ibm.wiotp.masdc.DBConnector ' + dtype
         logger.info("CMD: %s", command)
         logger.info("Start process for dtype: %s", dtype)
         os.system(command)

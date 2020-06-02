@@ -17,7 +17,7 @@
 #
 
 # Update these variables if required
-$InstallPath = "C:\Program Files\IBM\masdc"
+$InstallPath = "C:\IBM\masdc"
 $DataPath = "C:\IBM\masdc"
 
 # ----------------------------------------------------------------------------
@@ -56,7 +56,7 @@ if(!(Test-Path $path))
 }
 
 # Expand Connector code
-Write-Host "Expanding connector.zip, and copying binaries and libraries in C:\Program Files\IBM\masdc"
+Write-Host "Expanding connector.zip, and copying binaries and libraries in C:\IBM\masdc"
 $path = ".\connector\mas-scada-bulkingest-master"
 if(!(Test-Path $path))
 {
@@ -160,7 +160,7 @@ $xmlentity = @"
   <Actions Context="Author">
     <Exec>
       <Command>cmd</Command>
-      <Arguments>/K "C:\Program Files\IBM\masdc\bin\connector.bat" entity</Arguments>
+      <Arguments>/K "C:\IBM\masdc\bin\connector.bat" entity</Arguments>
       <WorkingDirectory>C:\IBM\masdc\volume\logs</WorkingDirectory>
     </Exec>
   </Actions>
@@ -225,7 +225,7 @@ $xmlalarm = @"
   <Actions Context="Author">
     <Exec>
       <Command>cmd</Command>
-      <Arguments>/K "C:\Program Files\IBM\masdc\bin\connector.bat" alarm</Arguments>
+      <Arguments>/K "C:\IBM\masdc\bin\connector.bat" alarm</Arguments>
       <WorkingDirectory>C:\IBM\masdc\volume\logs</WorkingDirectory>
     </Exec>
   </Actions>

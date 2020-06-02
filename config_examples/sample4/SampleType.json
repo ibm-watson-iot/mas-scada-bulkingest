@@ -3,13 +3,13 @@
     "type": "entity",
     "runMode": 0,
     "database": {
-        "sqlFile": "",
-        "sqlStatement": "sqlStatement": "select * from sqlt_data_1_2020_04 as data, sqlth_te as tag where data.tagid = tag.id order by t_stamp ASC",
+        "sqlFile": "CakebreadType.sql",
+        "startDate": "2020-06-01 00:00:00",
         "fetchSize": 600,
         "insertSize": 600,
         "scanInterval": 300,
-        "tableNameChangeDate": 1,
-        "sqlStatementFormat": "select * from sqlt_data_1_%Y_%m as data, sqlth_te as tag where data.tagid = tag.id order by t_stamp ASC"
+        "sampleFetchSize": 100,
+        "formatSqlStatement": true
     },
     "tagData": {
         "tagpath": "tagpath",
