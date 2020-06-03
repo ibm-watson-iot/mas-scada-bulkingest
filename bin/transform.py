@@ -102,7 +102,7 @@ def transformInputCSV(dataPath, interfaceId, inputFile, outputFile, type, conncf
         discardColumn = [ tStampCol ]
         df = df.drop(discardColumn, axis=1)
 
-    logger.info("Rename Columns:")
+    logger.info("Change column names:")
     logger.info(columnTitles)
     logger.info(len(columnTitles))
     if len(columnTitles) > 0:
@@ -178,10 +178,10 @@ def addDimensions(type, conncfg, config, df):
     headers['x-api-key'] = key
     headers['x-api-token'] = token
 
-    payload = []
-
+    logger.info("Invoke API to create dimensions.")
     dids = df['dimensionData'].unique().tolist()
     for did in dids:
+        payload = []
         dimData = did.split("#")
         idname = dimData[0]
         tpath = dimData[1]
@@ -209,12 +209,10 @@ def addDimensions(type, conncfg, config, df):
             item['value'] = dimvalue
             payload.append(item)
 
-    if len(payload) > 0:
-        logger.info(json.dumps(payload))
-        logger.info("Invoke API to create dimensions.")
-        response = requests.post(url, data=json.dumps(payload), params={'blocking': 'true', 'result': 'true'}, headers=headers)
-        logger.info(response.status_code)
-        logger.info(response.text)
+        if len(payload) > 0:
+            logger.info(json.dumps(payload))
+            response = requests.post(url, data=json.dumps(payload), params={'blocking': 'true', 'result': 'true'}, headers=headers)
+            logger.info(response.text)
 
     return True
 

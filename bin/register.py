@@ -269,10 +269,7 @@ def createSchemas(dataPath, config, conncfg, type, df, dataTypes):
     dataContentDDL = ""
     columnTitles = []
     pType = config['type']
-    if pType == "alarm":
-        wiotpCols = ['DEVICETYPE','DEVICEID','LOGICALINTERFACE_ID','FORMAT','RCV_TIMESTAMP_UTC','UPDATED_UTC']
-    else:
-        wiotpCols = ['DEVICETYPE','DEVICEID','LOGICALINTERFACE_ID','EVENTTYPE','FORMAT','RCV_TIMESTAMP_UTC','UPDATED_UTC']
+    wiotpCols = ['DEVICETYPE','DEVICEID','LOGICALINTERFACE_ID','EVENTTYPE','FORMAT','RCV_TIMESTAMP_UTC','UPDATED_UTC']
     evtSchemaFile = dataPath+'/'+type+'/schemas/'+type+'EventSchema.json'
     LISchemaFile = dataPath+'/'+type+'/schemas/'+type+'LISchema.json'
     logger.info("evtSchemaCreate: File: " + evtSchemaFile)
@@ -410,10 +407,7 @@ def createSchemas(dataPath, config, conncfg, type, df, dataTypes):
     dbcfg = conncfg['datalake']
     schemaName = dbcfg['schema'].upper()
     ddlOutFD = open(dataPath+'/'+type+'/schemas/'+type+'.ddl', "w")
-    if pType == "alarm":
-        ddlOutFD.write('CREATE TABLE ' + schemaName.strip() + '.IOT_' + tableName.strip() + ' ( '+dataContentDDL+' DEVICETYPE VARCHAR(64), DEVICEID VARCHAR(256), LOGICALINTERFACE_ID VARCHAR(64), FORMAT VARCHAR(32), RCV_TIMESTAMP_UTC TIMESTAMP(12), UPDATED_UTC TIMESTAMP(12) )' )
-    else:
-        ddlOutFD.write('CREATE TABLE ' + schemaName.strip() + '.IOT_' + tableName.strip() + ' ( '+dataContentDDL+' DEVICETYPE VARCHAR(64), DEVICEID VARCHAR(256), LOGICALINTERFACE_ID VARCHAR(64), EVENTTYPE VARCHAR(64), FORMAT VARCHAR(32), RCV_TIMESTAMP_UTC TIMESTAMP(12), UPDATED_UTC TIMESTAMP(12) )' )
+    ddlOutFD.write('CREATE TABLE ' + schemaName.strip() + '.IOT_' + tableName.strip() + ' ( '+dataContentDDL+' DEVICETYPE VARCHAR(64), DEVICEID VARCHAR(256), LOGICALINTERFACE_ID VARCHAR(64), EVENTTYPE VARCHAR(64), FORMAT VARCHAR(32), RCV_TIMESTAMP_UTC TIMESTAMP(12), UPDATED_UTC TIMESTAMP(12) )' )
     ddlOutFD.close()
 
 

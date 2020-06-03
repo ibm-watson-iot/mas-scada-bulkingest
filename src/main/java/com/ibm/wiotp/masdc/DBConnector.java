@@ -232,7 +232,7 @@ public class DBConnector {
             }
 
             // Extract data, and upload to data lake
-            if ( runMode != 1 ) {
+            if ( runMode == 0 || runMode == 3 ) {
                 upload(datalake);
             }
 
@@ -272,90 +272,73 @@ public class DBConnector {
             boolean useChunk = false;
             String scriptPath = installDir + "/bin/register.py";
 
-            if (dbType.compareTo("none") != 0) {
-                // DB connection
-                logger.info("Connecting to database to extract data from " + tableName);
-                boolean getNextChunk = true;
-                int type = 1;
-                String DB_URL = "jdbc:sqlserver://"+sourceHost+":"+sourcePort+";databaseName="+sourceDatabase+";user="+
-                    sourceUser+";password="+sourcePassword;
-                if ( dbType.compareTo("mysql") == 0 ) {
-                    DB_URL = "jdbc:mysql://" + sourceHost + "/" + sourceSchema;
-                    conn = DriverManager.getConnection(DB_URL, sourceUser, sourcePassword);
-                } else {
-                    conn = DriverManager.getConnection(DB_URL);
-                    type = 2;
-                }
-    
-                String sqlStr = "";
-                ResultSet rs;
-                stmt = conn.createStatement();
+            // DB connection
+            logger.info("Connecting to database to extract data from " + tableName);
+            boolean getNextChunk = true;
+            int type = 1;
+            String DB_URL = "jdbc:sqlserver://"+sourceHost+":"+sourcePort+";databaseName="+sourceDatabase+";user="+
+                sourceUser+";password="+sourcePassword;
+            if ( dbType.compareTo("mysql") == 0 ) {
+                DB_URL = "jdbc:mysql://" + sourceHost + "/" + sourceSchema;
+                conn = DriverManager.getConnection(DB_URL, sourceUser, sourcePassword);
+            } else {
+                conn = DriverManager.getConnection(DB_URL);
+                type = 2;
+            }
 
-                // retrieve one record
-                if ( type == 1 ) {
-                    sqlStr = customSql + " LIMIT 0," + sampleChunkSize;
-                } else {
-                    sqlStr = customSql + " OFFSET 1 ROWS FETCH NEXT " + sampleChunkSize + " ROWS ONLY";
-                }
-     
-                logger.info("SQL: " + sqlStr);
-                rs = stmt.executeQuery(sqlStr);
-    
-                // Get column count                
-                final ResultSetMetaData rsmd = rs.getMetaData();
-                int columnCount = rsmd.getColumnCount();
-    
-                // Open csv file and write column headers
-                logger.info("Dump extracted data to: " + csvFilePath);
-                fw = new FileWriter(csvFilePath);
+            String sqlStr = "";
+            ResultSet rs;
+            stmt = conn.createStatement();
+
+            // retrieve one record
+            if ( type == 1 ) {
+                sqlStr = customSql + " LIMIT 0," + sampleChunkSize;
+            } else {
+                sqlStr = customSql + " OFFSET 1 ROWS FETCH NEXT " + sampleChunkSize + " ROWS ONLY";
+            }
+ 
+            logger.info("SQL: " + sqlStr);
+            rs = stmt.executeQuery(sqlStr);
+
+            // Get column count                
+            final ResultSetMetaData rsmd = rs.getMetaData();
+            int columnCount = rsmd.getColumnCount();
+
+            // Open csv file and write column headers
+            logger.info("Dump extracted data to: " + csvFilePath);
+            fw = new FileWriter(csvFilePath);
+            for (int i = 1; i <= columnCount; i++) {
+                fw.append(rs.getMetaData().getColumnName(i));
+                if ( i < columnCount ) fw.append(",");
+            }
+            fw.append(System.getProperty("line.separator"));
+  
+            // For each row, loop thru the number of columns and write to the csv file
+            int rowCount = 0;
+            while (rs.next()) {
                 for (int i = 1; i <= columnCount; i++) {
-                    fw.append(rs.getMetaData().getColumnName(i));
+                    if (rs.getObject(i) != null) {
+                        String data = rs.getObject(i).toString();
+                        fw.append(data);
+                    } else {
+                        String data = "null";
+                        fw.append(data);
+                    }
                     if ( i < columnCount ) fw.append(",");
                 }
                 fw.append(System.getProperty("line.separator"));
-      
-                // For each row, loop thru the number of columns and write to the csv file
-                int rowCount = 0;
-                while (rs.next()) {
-                    for (int i = 1; i <= columnCount; i++) {
-                        if (rs.getObject(i) != null) {
-                            String data = rs.getObject(i).toString();
-                            fw.append(data);
-                        } else {
-                            String data = "null";
-                            fw.append(data);
-                        }
-                        if ( i < columnCount ) fw.append(",");
-                    }
-                    fw.append(System.getProperty("line.separator"));
-                    rowCount += 1;
-                }
-                fw.flush();
-                fw.close();
+                rowCount += 1;
+            }
+            fw.flush();
+            fw.close();
 
-                String msg1 = String.format("Data extracted: columns=%d  rows=%d\n", columnCount, rowCount);
-                logger.info(msg1);
-   
-                if ( runMode != 1 ) { 
-                    // Run script if specified
-                    String[] command ={pythonPath, scriptPath, tableName, dataDir}; 
-                    logger.info("Run action script: " + scriptPath);
-                    ProcessBuilder pb = new ProcessBuilder(command);
-                    try {
-                        Process p = pb.start();
-                        p.waitFor();
-                        p.destroy();
-                        logger.info("Register script is executed.");
-                    } catch (Exception e) {
-                        logger.info("Exception during execution of action script." + e.getMessage());
-                    }
-                }
-        
-                conn.close();
+            String msg1 = String.format("Data extracted: columns=%d  rows=%d\n", columnCount, rowCount);
+            logger.info(msg1);
 
-            } else {
- 
-                // Data is extracted using other option - CSV file should be present
+            conn.close();
+
+            if ( runMode == 0 || runMode == 2 ) { 
+                // Run script if specified
                 String[] command ={pythonPath, scriptPath, tableName, dataDir}; 
                 logger.info("Run action script: " + scriptPath);
                 ProcessBuilder pb = new ProcessBuilder(command);
@@ -363,13 +346,12 @@ public class DBConnector {
                     Process p = pb.start();
                     p.waitFor();
                     p.destroy();
-                    logger.info("Script is executed.");
+                    logger.info("Register script is executed.");
                 } catch (Exception e) {
                     logger.info("Exception during execution of action script." + e.getMessage());
                 }
-        
             }
-
+        
             logger.info("Registration process is complete.");
 					
         } catch (Exception ex) {
@@ -617,7 +599,7 @@ public class DBConnector {
                 } catch (Exception e) {}
 
                 // For testMode stop the loop
-                if ( runMode == 2 ) {
+                if ( runMode == 3 ) {
                     getNextChunk = false;
                     logger.info("Test mode is enabled. Stop chuck processing loop");
                 }
