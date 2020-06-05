@@ -507,29 +507,13 @@ public class DBConnector {
                 String dmsg = String.format("Data extracted: columns=%d  rows=%d\n", columnCount, rowCount); 
                 logger.info(dmsg);
    
-                // remove temprary process file
-                File prcfile = new File(prcFilePath);
-                if ( prcfile.exists()) {
-                    prcfile.delete();
-                }
-
                 // Run script is specified
                 String[] command ={pythonPath, scriptPath, tableName, applyDDL}; 
-                // logger.info("Execute action script: " + scriptPath);
+                logger.info("Starting script to transformed data.");
                 ProcessBuilder pb = new ProcessBuilder(command);
                 try {
                     Process p = pb.start();
-                    logger.info("Starting script to transformed data.");
-                    // Workaround for hang issue with p.waitfor()
-                    // Wait for 3 minutes for transformation script to finish
-                    while (true) {
-                        if (p.exitValue() == 0) break;
-                        try {
-                            Thread.sleep(5000);
-                        } catch (Exception e) {}
-                        // check if processed file is created
-                        if (prcfile.exists()) break;
-                    }
+                    p.waitFor();
                     p.destroy();
                  } catch (Exception e) {
                     logger.info("Exception during execution of action script." + e.getMessage());
@@ -606,11 +590,11 @@ public class DBConnector {
                 fw.close();
 
                 // remove temprary process file
-                prcfile = new File(prcFilePath);
+                File prcfile = new File(prcFilePath);
                 prcfile.delete();
 
                 try {
-                    Thread.sleep(2000);
+                    Thread.sleep(5000);
                 } catch (Exception e) {}
 
                 // For testMode stop the loop

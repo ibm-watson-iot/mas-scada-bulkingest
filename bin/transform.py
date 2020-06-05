@@ -102,9 +102,8 @@ def transformInputCSV(dataPath, interfaceId, inputFile, outputFile, type, conncf
         discardColumn = [ tStampCol ]
         df = df.drop(discardColumn, axis=1)
 
-    logger.info("Change column names:")
+    logger.info("Change column names, len = " + str(len(columnTitles)))
     logger.info(columnTitles)
-    logger.info(len(columnTitles))
     if len(columnTitles) > 0:
         df = df.reindex(columns=columnTitles)
 
@@ -155,7 +154,7 @@ def addDimensions(type, conncfg, config, df):
         if 'setDimensions' in tagData:
             setDimensions = tagData['setDimensions']
             tagpath = tagData['tagpath']
-    if setDimensions == False or tagpath == '':
+    if tagpath == '':
         return False
 
     client = config['client']
@@ -178,10 +177,13 @@ def addDimensions(type, conncfg, config, df):
     headers['x-api-key'] = key
     headers['x-api-token'] = token
 
+    nset = 0
+    payload = []
     logger.info("Invoke API to create dimensions.")
     dids = df['dimensionData'].unique().tolist()
     for did in dids:
-        payload = []
+        if nset == 0:
+            payload = []
         dimData = did.split("#")
         idname = dimData[0]
         tpath = dimData[1]
@@ -209,8 +211,20 @@ def addDimensions(type, conncfg, config, df):
             item['value'] = dimvalue
             payload.append(item)
 
-        if len(payload) > 0:
-            logger.info(json.dumps(payload))
+        nset += 1
+        if nset == 25:
+            if len(payload) > 0:
+                logger.info("Add dimension data: " + str(nset))
+                logger.info(json.dumps(payload))
+                if setDimensions == True:
+                    response = requests.post(url, data=json.dumps(payload), params={'blocking': 'true', 'result': 'true'}, headers=headers)
+                    logger.info(response.text)
+                nset = 0
+
+    if nset > 0 and nset < 25 and len(payload) > 0:
+        logger.info("Add dimension data: " + str(nset))
+        logger.info(json.dumps(payload))
+        if setDimensions == True:
             response = requests.post(url, data=json.dumps(payload), params={'blocking': 'true', 'result': 'true'}, headers=headers)
             logger.info(response.text)
 

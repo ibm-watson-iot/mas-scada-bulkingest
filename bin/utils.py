@@ -225,7 +225,7 @@ def normalizeDataFrame(dataPath, inputFile, config, regreq):
             df['deviceId'] = config['client'] + "Id"
 
     # set dimension data column
-    if setDimensions == True and tagpath != '':
+    if tagpath != '':
         df['dimensionData'] = df.apply (lambda row: set_dimensionData_field(row, tagpath), axis=1)
 
     # Set event data fields
