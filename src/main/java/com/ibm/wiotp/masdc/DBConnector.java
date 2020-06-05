@@ -18,6 +18,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.sql.*;
 import java.sql.Types.*;
 import java.nio.file.*;
@@ -340,7 +341,7 @@ public class DBConnector {
             if ( runMode == 0 || runMode == 2 ) { 
                 // Run script if specified
                 String[] command ={pythonPath, scriptPath, tableName, dataDir}; 
-                logger.info("Run action script: " + scriptPath);
+                logger.info("Execute registration script: " + scriptPath);
                 ProcessBuilder pb = new ProcessBuilder(command);
                 try {
                     Process p = pb.start();
@@ -509,12 +510,15 @@ public class DBConnector {
    
                 // Run script is specified
                 String[] command ={pythonPath, scriptPath, tableName, applyDDL}; 
-                logger.info("Starting script to transformed data.");
+                logger.info("Executing script to transform data.");
                 ProcessBuilder pb = new ProcessBuilder(command);
                 try {
                     Process p = pb.start();
-                    p.waitFor();
-                    p.destroy();
+                    if (p.waitFor(300, TimeUnit.SECONDS) == false) {
+                        p.destroyForcibly();
+                    } else { 
+                        p.destroy();
+                    }
                  } catch (Exception e) {
                     logger.info("Exception during execution of action script." + e.getMessage());
                 }
