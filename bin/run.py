@@ -52,8 +52,8 @@ if __name__ == "__main__":
     try:
         rtype = sys.argv[1]
     except IndexError:
-        print("ERROR: Entity or alarm run type is not specified")
-        print("Usage: connector <runtype>")
+        print("ERROR: Entity or alarm type is not specified")
+        print("Usage: connector <entity | alarm | extract_sqlFileName>")
         exit(1)
 
     runtype='restart'
@@ -84,8 +84,20 @@ if __name__ == "__main__":
     entityDataFile = ''
     if rtype == 'alarm':
         entityDataFile = dataDir + "/volume/config/alarm.dat"
-    else:
+    elif rtype == 'entity':
         entityDataFile = dataDir + "/volume/config/entity.dat"
+    else:
+        # data extraction only
+        CP = installDir + '/jre/lib/*:' + installDir + '/lib/*'
+        if os.name == 'nt':
+            CP = installDir + '/jre/lib/*;' + installDir + '/lib/*'
+        logger.info("CP: %s", CP)
+        command =  installDir + '/jre/bin/java -classpath "' + CP + '" com.ibm.wiotp.masdc.DBConnector extract ' + rtype
+        logger.info("CMD: %s", command)
+        logger.info("Start process to extract data: %s", rtype)
+        os.system(command)
+        exit()
+    
     rlfd.write("Use data file: " + entityDataFile + "\n")
     foundFile = 0
     dtype = ""

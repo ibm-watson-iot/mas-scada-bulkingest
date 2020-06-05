@@ -86,6 +86,8 @@ public class DBConnector {
      */
     public static void main(String[] args) {
 
+        String extractSqlFile = "";
+
         try {
             tableName = args[0];
 
@@ -93,6 +95,11 @@ public class DBConnector {
             if (tableName.isEmpty()) {
                 logger.info("ExtractData: Required argument tableName is not specified.");
                 System.exit(1);
+            }
+
+            // Check if only db extraction is needed
+            if (args.length > 1) {
+                extractSqlFile = args[1];
             }
 
             // Get user home dir
@@ -125,7 +132,12 @@ public class DBConnector {
                 Handler lh = handlers[i];
                 logger.removeHandler(lh);
             }
-            logFile = installDir + "/volume/logs/" + tableName + "/extract.log";
+
+            if ( extractSqlFile.compareTo("") == 0 ) {
+                logFile = installDir + "/volume/logs/" + tableName + "/extract.log";
+            } else {
+                logFile = installDir + "/volume/logs/extract_" + extractSqlFile.replace(".sql", ".log");
+            }
             fh = new FileHandler(logFile);  
             logger.addHandler(fh);
             SimpleFormatter formatter = new SimpleFormatter();
@@ -164,6 +176,12 @@ public class DBConnector {
                 sourceUser = scada.getString("user");
                 sourcePassword = scada.getString("password");
             }
+
+            // Check if only data extraction is needed using an sql statement
+            if (extractSqlFile.compareTo("") != 0) {
+                extractOnly(extractSqlFile);
+                return;
+            } 
 
             // Get table configuration
             fileContent = new String(Files.readAllBytes(Paths.get(tableConfigFile)));
@@ -883,5 +901,86 @@ public class DBConnector {
         }
 
         return retval;
+    }
+
+
+    // Extract data using defined sql and dump it in csv file
+    private static void extractOnly(String sqlFileName) {
+
+        FileWriter fw;
+        Connection conn = null;
+        Statement stmt = null;
+
+        try {
+            // Read file content from sql file
+            String custSqlFilePath = dataDir + "/volume/config/" + sqlFileName;
+            String custCsvFilePath = dataDir + "/volume/data/csv/" + sqlFileName.replace(".sql", ".csv");
+            String sqlStatement = new String(Files.readAllBytes(Paths.get(custSqlFilePath)));
+
+            // DB connection
+            logger.info("Connecting to database to extract data from " + tableName);
+            int type = 1;
+            String DB_URL = "jdbc:sqlserver://"+sourceHost+":"+sourcePort+";databaseName="+sourceDatabase+";user="+
+                sourceUser+";password="+sourcePassword;
+            if ( dbType.compareTo("mysql") == 0 ) {
+                DB_URL = "jdbc:mysql://" + sourceHost + "/" + sourceSchema;
+                conn = DriverManager.getConnection(DB_URL, sourceUser, sourcePassword);
+            } else {
+                conn = DriverManager.getConnection(DB_URL);
+                type = 2;
+            }
+
+            String sqlStr = "";
+            ResultSet rs;
+            stmt = conn.createStatement();
+
+            // retrieve one record
+            if ( type == 1 ) {
+                sqlStr = sqlStatement + " LIMIT 0,5000";
+            } else {
+                sqlStr = sqlStatement + " OFFSET 1 ROWS FETCH NEXT 5000 ROWS ONLY";
+            }
+ 
+            logger.info("SQL: " + sqlStr);
+            rs = stmt.executeQuery(sqlStr);
+
+            // Get column count                
+            final ResultSetMetaData rsmd = rs.getMetaData();
+            int columnCount = rsmd.getColumnCount();
+
+            // Open csv file and write column headers
+            logger.info("Dump extracted data to: " + custCsvFilePath);
+            fw = new FileWriter(custCsvFilePath);
+            for (int i = 1; i <= columnCount; i++) {
+                fw.append(rs.getMetaData().getColumnName(i));
+                if ( i < columnCount ) fw.append(",");
+            }
+            fw.append(System.getProperty("line.separator"));
+  
+            // For each row, loop thru the number of columns and write to the csv file
+            int rowCount = 0;
+            while (rs.next()) {
+                for (int i = 1; i <= columnCount; i++) {
+                    if (rs.getObject(i) != null) {
+                        fw.append(rs.getString(i).replaceAll(",", " "));
+                    } else {
+                        String data = "null";
+                        fw.append(data);
+                    }
+                    if ( i < columnCount ) fw.append(",");
+                }
+                fw.append(System.getProperty("line.separator"));
+                rowCount += 1;
+            }
+            fw.flush();
+            fw.close();
+
+            String msg1 = String.format("Data extracted: columns=%d  rows=%d\n", columnCount, rowCount);
+            logger.info(msg1);
+
+            conn.close();
+        } catch (Exception ex) {
+            logger.info("Exception information: " + ex.getMessage());
+        }
     }
 }

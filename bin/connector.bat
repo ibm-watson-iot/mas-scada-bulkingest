@@ -18,12 +18,5 @@ set DI_LIB=%DI_HOME%\lib
 set PYTHON_HOME=%DI_HOME%\python-3.7.5
 set PATH=%PATH%;%DI_BIN%;%PYTHON_HOME%
 
-IF "%1"=="alarm" GOTO Alarm
-%PYTHON_HOME%\python.exe %DI_BIN%\run.py entity
-GOTO End
-
-:Alarm
-%PYTHON_HOME%\python.exe %DI_BIN%\run.py alarm
-
-:End
+%PYTHON_HOME%\python.exe %DI_BIN%\run.py "%1"
 
