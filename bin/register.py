@@ -544,4 +544,5 @@ if __name__ == "__main__":
             sendEventFD.write('Sample Event is sent')
             sendEventFD.close()
 
+    exit()
 

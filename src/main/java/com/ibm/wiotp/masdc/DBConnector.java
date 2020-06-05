@@ -319,8 +319,7 @@ public class DBConnector {
             while (rs.next()) {
                 for (int i = 1; i <= columnCount; i++) {
                     if (rs.getObject(i) != null) {
-                        String data = rs.getObject(i).toString();
-                        fw.append(data);
+                        fw.append(rs.getString(i).replaceAll(",", " "));
                     } else {
                         String data = "null";
                         fw.append(data);
@@ -470,8 +469,7 @@ public class DBConnector {
                 while (rs.next()) {
                     for (int i = 1; i <= columnCount; i++) {
                         if (rs.getObject(i) != null) {
-                            String data = rs.getObject(i).toString();
-                            fw.append(data);
+                            fw.append(rs.getString(i).replaceAll(",", " "));
                         } else {
                             String data = "null";
                             fw.append(data);
