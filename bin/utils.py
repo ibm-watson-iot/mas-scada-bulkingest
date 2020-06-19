@@ -143,7 +143,11 @@ def set_dimensionData_field(row, idcolName):
     id = str(row['deviceId']) + "#" + str(row[idcolName])
     return id
 
-
+# Function to set empty value from alternate column value
+def set_alternate_value(row, fromColName, toColName):
+    if row[toColName] == '' or pd.isnull(row[toColName]):
+        return row[fromColName]
+    return row[toColName]
 
 #
 # Function to normalize extracted data based on configuration
@@ -242,11 +246,19 @@ def normalizeDataFrame(dataPath, inputFile, config, regreq):
                     tsConvert = 0
             if tStamp != "":
                 df[tStamp] = df.apply (lambda row: set_timestamp_field(row, tStamp, tsConvert, regreq), axis=1)
+        # Set event Id
         evtId = ''
         if 'id' in eventData:
             evtId = eventData['id']
         if evtId != '':
             df['EVENTID'] = df[evtId]
+        # Update empty fieldi of a column from alternate column field 
+        # Example - for alarm data, populate name from almname 
+        if 'dataAltMap' in eventData:
+            dataAltMap = eventData['dataAltMap']
+            for fromColName, toColName in dataAltMap.items():
+                if fromColName != '' and toColName != '':
+                    df[toColName] = df.apply (lambda row: set_alternate_value(row, fromColName, toColName), axis=1)
 
     # Process discardColumns
     discardColumns = config['discardColumns']
