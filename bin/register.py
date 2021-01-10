@@ -496,7 +496,7 @@ if __name__ == "__main__":
     if 'entityData' in config:
         if 'deviceId' in config['entityData']:
             useDeviceId = df.iloc[0]['deviceId']
-            print("Use deviceId for sending sample event: " + useDeviceId)
+            print("Use deviceId for sending sample event: %s" % useDeviceId)
 
     # Create event mappings, phyical and logical interface schemas
     dataTypes = evtMapCreate(dataPath, config, type, df)

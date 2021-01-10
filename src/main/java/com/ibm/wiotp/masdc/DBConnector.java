@@ -134,7 +134,7 @@ public class DBConnector {
             }
 
             if ( extractSqlFile.compareTo("") == 0 ) {
-                logFile = installDir + "/volume/logs/" + tableName + "/extract.log";
+                logFile = installDir + "/volume/logs/" + tableName + "/connector.log";
             } else {
                 logFile = installDir + "/volume/logs/extract_" + extractSqlFile.replace(".sql", ".log");
             }
@@ -276,6 +276,7 @@ public class DBConnector {
             logger.info("Exception information: " + ex.getMessage());
             ex.printStackTrace();
         }
+        logger.info("Exit and wait for next scan cycle to start.");
     }
 
 
@@ -425,6 +426,9 @@ public class DBConnector {
             long l_t_stamp  = 0;
             int l_t_stamp_convert = -1;
             int nRows = 0;
+            long curTmMillis = 0;
+            long lastTmMillis = 0;
+            String startDate = "";
             while ( getNextChunk ) {
                 // Set limit and offset
                 int startRow = 0;
@@ -432,6 +436,7 @@ public class DBConnector {
                     String offsetRecordStr = new String (Files.readAllBytes(Paths.get(offFilePath)));
                     JSONObject offsetRecord = new JSONObject(offsetRecordStr);
                     startRow = offsetRecord.getInt("startRow");
+                    startDate = offsetRecord.getString("startDate");
                 }
                 catch (Exception e) {
                     logger.info("Data offset file is not created yet. Start from begining. " + e.getMessage());
@@ -456,7 +461,25 @@ public class DBConnector {
 
                 ResultSet rs;
                 logger.info("SQL: " + customSql + limitStr);
-                rs = stmt.executeQuery(customSql + limitStr);
+
+                try {
+                    rs = stmt.executeQuery(customSql + limitStr);
+                } catch (Exception qex) {
+                    if (qex instanceof SQLException) {
+                        int errCode = ((SQLException)qex).getErrorCode();
+                        logger.info("Extract: SQLException error code: " + errCode);
+                        if (errCode == 1146) {
+                            String offsetRec = "{\"startDate\":\"" + startDate + "\",\"startRow\":0,\"lastEndTS\":-1}";
+                            fw = new FileWriter(offFilePath);
+                            fw.write(offsetRec);
+                            fw.flush();
+                            fw.close();
+                        }
+                    }
+                    throw qex;
+                }
+
+                curTmMillis = System.currentTimeMillis();
 
                 // Get column count and column type of TS column
                 final ResultSetMetaData rsmd = rs.getMetaData();
@@ -585,9 +608,21 @@ public class DBConnector {
                     nprocessed = chunkSize;
                 }
 
-                // break the loop if data is not uploaded successfully
+                // break the loop if no data is uploaded
                 if ( uploaded.compareTo("N") == 0 ) { 
-                    logger.info("Failed to upload processed data.");
+                    logger.info("No data is uploaded.");
+                    // Update last timestamp is no data is available to upload
+                    if (lastTmMillis == 0) {
+                        lastTmMillis = curTmMillis;
+                    } else {
+                        l_t_stamp += (curTmMillis - lastTmMillis);
+                        String offsetRec = "{\"startDate\":\"" + startDate + "\", \"startRow\":" + startRow + ", \"lastEndTS\":" + l_t_stamp + " }";
+                        fw = new FileWriter(offFilePath);
+                        fw.write(offsetRec);
+                        fw.flush();
+                        fw.close();
+                        lastTmMillis = curTmMillis;
+                    }
                     break;
                 }
 
@@ -601,13 +636,14 @@ public class DBConnector {
                 statsMsg = String.format(
                     "%s, %d, %d, %d, %d, %d, %d, %s, %d\n",
                     curTime, csvFileSize, columnCount, rowCount, prCsvFileSize, colsProcessed, nprocessed, uploaded, l_t_stamp);
-                offsetRec = "{ \"startRow\":" + startRow + ", \"t_stamp\":" + l_t_stamp + " }";
+                offsetRec = "{\"startDate\":\"" + startDate + "\", \"startRow\":" + startRow + ", \"lastEndTS\":" + l_t_stamp + " }";
                 fwStats.write(statsMsg);
                 fwStats.flush();
                 fw = new FileWriter(offFilePath);
                 fw.write(offsetRec);
                 fw.flush();
                 fw.close();
+                lastTmMillis = curTmMillis;
 
                 // remove temprary process file
                 File prcfile = new File(prcFilePath);

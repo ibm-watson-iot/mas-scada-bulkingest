@@ -192,6 +192,8 @@ if __name__ == "__main__":
     if 'formatSqlStatement' in dbconfig:
         formatSqlStatement = dbconfig['formatSqlStatement']
 
+    fCycleDone = 0
+    nCycle = 0
     retval = 0
     while retval == 0:
         # Get last run record
@@ -204,17 +206,27 @@ if __name__ == "__main__":
                     lastEndTS = lrunCfg['lastEndTS']
         else:
             # Create a new offset file
-            recStr = '{"startRow":0,"lastEndTS":0}'
+            recStr = '{"startDate":"' + startDate + '","startRow":0,"lastEndTS":0}'
             frs = open(dataOffsetPath, "w")
             frs.write(recStr)
             frs.close()
 
         sqlStatementFormatted = sqlStatement
         if formatSqlStatement == True:
-            nDay, nMonth, nYear = utils.getNextExtractionDate(startDate, lastEndTS)
+            logger.info("Update SQL based on configured start date")
+            nDay, nMonth, nYear, nCycle = utils.getNextExtractionDate(startDate, lastEndTS, nCycle)
+            logger.info("Next Date data: %d %d %d" % (nYear, nMonth, nDay))
             nextDate = datetime.date(year=nYear,day=nDay,month=nMonth)
-            logger.info(nextDate)
+            startDate = datetime.date(year=nYear,day=nDay,month=nMonth).strftime('%Y-%m-%d') + " 00:00:00"
+            logger.info("Start date: %s" % startDate)
             sqlStatementFormatted = nextDate.strftime(sqlStatement)
+
+        if nCycle == 0 and fCycleDone > 0:
+            # Reset offset file
+            recStr = '{"startDate":"' + startDate + '","startRow":0,"lastEndTS":0}'
+            frs = open(dataOffsetPath, "w")
+            frs.write(recStr)
+            frs.close()
 
         # write sqlStatement
         sqfd = open(formatedSqlFilePath, "w")
@@ -235,9 +247,10 @@ if __name__ == "__main__":
         f.write("{ \"started\": %s }" % dtype)
         f.close()
            
-        retval = utils.createDir(dataDir, "volume/data/" + dtype, dirperm)
-        retval += utils.createDir(dataDir, "volume/data/" + dtype + "/schemas", dirperm)
-        retval += utils.createDir(dataDir, "volume/data/" + dtype + "/data", dirperm)
+        utils.createDir(dataDir, "volume/data/" + dtype, dirperm)
+        utils.createDir(dataDir, "volume/data/" + dtype + "/schemas", dirperm)
+        utils.createDir(dataDir, "volume/data/" + dtype + "/data", dirperm)
+
         CP = installDir + '/jre/lib/*:' + installDir + '/lib/*'
         if os.name == 'nt':
             CP = installDir + '/jre/lib/*;' + installDir + '/lib/*'
@@ -246,6 +259,8 @@ if __name__ == "__main__":
         logger.info("CMD: %s", command)
         logger.info("Start process for dtype: %s", dtype)
         os.system(command)
-
+        logger.info("Wait for next scan to start in %d seconds", scanInterval)
+        nCycle += 1
+        fCycleDone = 1
         time.sleep(scanInterval)
 

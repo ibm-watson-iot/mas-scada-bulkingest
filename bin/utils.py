@@ -26,6 +26,7 @@ import logging
 import sys, subprocess
 import os
 from os import path
+import uuid
 
 
 userHome = str(Path.home())
@@ -107,11 +108,13 @@ def set_timestamp_field(row, tStamp, tsConvert, regreq):
     return tsUTC 
 
 # Function to set device ID field
-def set_deviceid_field(row, idcolName, prefix, format):
+def set_deviceid_field(row, idcolName, prefix, format, tagpathColName):
     if prefix != '':
         if format != '':
             if format == 'UUID':
                 id = prefix + "_" + row[idcolName].replace('-', '')
+            elif format == 'UUID5':
+                id = str(uuid.uuid5(uuid.NAMESPACE_DNS, prefix + "/" + row[tagpathColName]))
             else:
                 id = prefix + "_" + str(format % row[idcolName]).replace(' ', '0')
         else:
@@ -224,7 +227,7 @@ def normalizeDataFrame(dataPath, inputFile, config, regreq):
             deviceIdFormat = ""
             if 'deviceIdFormat' in entityData:
                 deviceIdFormat = entityData['deviceIdFormat']
-            df['deviceId'] = df.apply (lambda row: set_deviceid_field(row, deviceId, deviceIdPrefix, deviceIdFormat), axis=1)
+            df['deviceId'] = df.apply (lambda row: set_deviceid_field(row, deviceId, deviceIdPrefix, deviceIdFormat, tagpath), axis=1)
         else:
             df['deviceId'] = config['client'] + "Id"
 
@@ -351,18 +354,20 @@ def sendEvent(type, conncfg, df, dataPath, useDeviceId, registerSampleEvent, sam
 
 
 
-def getNextExtractionDate(startDate, lastEndTS):
+def getNextExtractionDate(startDate, lastEndTS, nCycle):
     cDate = datetime.datetime.today()
     cDay = cDate.day
     cMonth = cDate.month
     cYear = cDate.year
     lDate = 0
-    lDay = 0
+    lDay = 1
     lMonth = 0
     lYear = 0
-    nDay = 0
+    nDay = 1
     nMonth = 0
     nYear = 0
+
+    logger.info("Extract startDate:%s lastEndTS:%d nCycle:%d " % (startDate, lastEndTS, nCycle))
 
     if startDate != '':
         lDate = datetime.datetime.strptime(startDate, '%Y-%m-%d %H:%M:%S')
@@ -370,31 +375,36 @@ def getNextExtractionDate(startDate, lastEndTS):
         lDate = cDate
 
     if lastEndTS == 0:
-        nDay = lDate.day
         nMonth = lDate.month
         nYear = lDate.year
+    elif lastEndTS == -1:
+        nYear = lDate.year
+        nMonth = lDate.month + 1
+        if nMonth > 12:
+            nMonth = 1
+            nYear = lDate.year + 1
     else:
         lDate = datetime.datetime.fromtimestamp(lastEndTS/1000)
-        lDay = lDate.day
         lMonth = lDate.month
         lYear = lDate.year
         nDate = datetime.datetime.fromtimestamp((lastEndTS/1000)+5)
-        nDay = nDate.day
         nMonth = nDate.month
         nYear = nDate.year
+        if nCycle > 0 and nYear < cYear:
+            nCycle = 0
+            nMonth += 1
+            if nMonth > 12:
+                nMonth = 1
+                nYear += 1
+
 
     if nYear > cYear:
         nYear = cYear
         nMonth = cMonth
-        nDay = cDay
     elif nYear == cYear:
         if nMonth > cMonth:
             nMonth = cMonth
-            nDay = cDay
-        elif nMonth == cMonth:
-            if nDay > cDay:
-                nDay = cDay
-
-    return nDay,nMonth,nYear
+            
+    return nDay,nMonth,nYear,nCycle
 
 
