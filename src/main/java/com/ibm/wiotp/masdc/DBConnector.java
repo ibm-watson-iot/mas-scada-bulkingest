@@ -64,12 +64,10 @@ public class DBConnector {
     static String sortStr = "";
     static int chunkSize = 50000;
     static int sampleChunkSize = 5;
-    static int scanInterval = 120;
     static int batchInsertSize = 10000;
-    static boolean formatSqlStatement = false;
+    static boolean formatSqlStatement = true;
     static String customSql = "";
     static String customSqlFile = "";
-    static int sampleEventCount = 1;
     static Logger logger = Logger.getLogger("dataingest.extract");  
     static FileHandler fh;  
     static JSONArray collist = new JSONArray();
@@ -191,10 +189,8 @@ public class DBConnector {
             JSONObject eventData = tableConfig.getJSONObject("eventData");
             chunkSize = dbConfig.getInt("fetchSize");
             sampleChunkSize = dbConfig.optInt("sampleFetchSize", 5);
-            scanInterval = dbConfig.getInt("scanInterval");
-            formatSqlStatement = dbConfig.getBoolean("formatSqlStatement");
+            formatSqlStatement = dbConfig.optBoolean("formatSqlStatement", true);
             customSqlFile = dbConfig.getString("sqlFile");
-            sampleEventCount = tableConfig.getInt("mqttEvents");
             batchInsertSize = dbConfig.getInt("insertSize");
             tstampColName = eventData.getString("timestamp");
             pType = tableConfig.getString("type");

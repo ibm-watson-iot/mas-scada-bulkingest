@@ -184,24 +184,26 @@ def normalizeDataFrame(dataPath, inputFile, config, regreq):
                 evtName = tagData['eventColumnName']
                 df['evt_name'] = df.apply (lambda row: set_eventid_value(row, tagpath, tagLevel), axis=1) 
 
-            if tagData["tagpathParseCount"] > 0 and len(tagData["tapMap"]) > 0:
-                # process tagpath
-                tags = tagpath.split("/", n=0, expand=True)
-                tagindex = 0
-                for tagid in tags.iloc[0]:
-                    tagid = "t_dim" + str(tagindex)
-                    df[tagid] = tags[tagindex]
-                    tagindex += 1
-    
-                rindex = tagData["tagpathParseCount"] - tagindex
-                if rindex > 0:
-                    for i in range(rindex):
-                        tagid = "t_dim" + str(tagindex + i)
-                        df[tagid] = " "
+            if 'tagpathParseCount' in tagData:
+                if  tagData["tagpathParseCount"] > 0:
+                    # process tagpath
+                    tags = tagpath.split("/", n=0, expand=True)
+                    tagindex = 0
+                    for tagid in tags.iloc[0]:
+                        tagid = "t_dim" + str(tagindex)
+                        df[tagid] = tags[tagindex]
+                        tagindex += 1
+        
+                    rindex = tagData["tagpathParseCount"] - tagindex
+                    if rindex > 0:
+                        for i in range(rindex):
+                            tagid = "t_dim" + str(tagindex + i)
+                            df[tagid] = " "
             
-                if len(tagData['tagMap']) > 0:
-                    logger.info("Apply Tagpath Mapping rules")
-                    df.rename(columns=tagData['tagMap'], inplace=True)
+                if 'tagMap' in tagData:
+                    if len(tagData["tapMap"]) > 0:
+                        logger.info("Apply Tagpath Mapping rules")
+                        df.rename(columns=tagData['tagMap'], inplace=True)
 
     # Set device type and id
     if 'entityData' in config:
@@ -210,7 +212,7 @@ def normalizeDataFrame(dataPath, inputFile, config, regreq):
         if 'deviceType' in entityData:
             deviceType = entityData['deviceType']
         if deviceType != '':
-            df['deviceType'] = df[deviceType]
+            df['deviceType'] = deviceType
         else:
             if 'setType' in entityData:
                 setType = entityData['setType']

@@ -119,14 +119,10 @@ def addDevices(type, conncfg, df):
 #
 # Create interfaces
 #
-def configureInterfaces(type, conncfg, dataPath, useDeviceId):
+def configureInterfaces(type, conncfg, dataPath, deviceId):
     # Get parameters from config object
     deviceType = type
     wiotp = conncfg['wiotp']
-    if useDeviceId != "":
-        deviceId = useDeviceId
-    else:
-        deviceId = config.deviceIdPrefix + "_001"
     key = wiotp["key"]
     token = wiotp["token"]
   
@@ -201,46 +197,6 @@ def configureInterfaces(type, conncfg, dataPath, useDeviceId):
             intfDoneFD.close()
 
     return logicalInterfaceId
-
-#
-# Function to get list of unique events, and data types
-#
-def getEventsAndDataTypes(dataPath, config, type):
-    csvFile = dataPath+'/csv/'+type+'.csv'
-    logger.info("getEventsAndDataTypes: File: " + csvFile)
-    tdf = pd.read_csv(csvFile, nrows=10000, engine='c')
-
-    etypes = []
-    evtCols = []
-    dataTypes = []
-
-    evtNameCol = ''
-    evtDataTypeCol = ''
-    evtTSCol = ''
-    eventData = config['eventData']
-    if 'id' in eventData:
-        evtNameCol = eventData["id"]
-    if 'evtDataType' in eventData['type']:
-        evtDataTypeCol = eventData['type']
-
-    if evtNameCol != '':
-        etypes = tdf[evtNameCol].unique().tolist()
-        for etype in etypes:
-            dtype = tdf.loc[tdf[evtNameCol] == etype].iloc[0][evtDataTypeCol]
-            if dtype not in eventData['ignoreDataType']:
-                dataTypes.append((etype, dtype))
-                evtCols.append(etype)
-
-    if 'timestamp' in eventData:
-        evtTSCol = eventData["timestamp"]
-        evtCols.append(evtTSCol)
-        if tdf[evtTSCol].iloc[0].dtype == 'int64':
-            dataTypes.append((evtTSCol, "number (epoc)"))
-        else:
-            dataTypes.append((evtTSCol, "string (date-time)"))
-
-    del tdf
-    return evtCols, dataTypes
 
 #
 # Function to create Events Mapping JSON file
@@ -490,6 +446,8 @@ if __name__ == "__main__":
 
     # Normalize extracted data
     df = utils.normalizeDataFrame(dataPath, inputFile, config, 1)
+
+    print(df)
 
     # check if tagpath needs to be set as device ID
     useDeviceId = ''

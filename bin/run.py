@@ -183,12 +183,12 @@ if __name__ == "__main__":
     with open(sqlFilePath, 'r') as f:
         sqlStatement = f.read()
         f.close()
-    scanInterval = 120
+    scanInterval = 60
     if 'scanInterval' in dbconfig:
         scanInterval = dbconfig['scanInterval']
     if scanInterval <= 0:
-        scanInterval = 120
-    formatSqlStatement = False
+        scanInterval = 60
+    formatSqlStatement = True
     if 'formatSqlStatement' in dbconfig:
         formatSqlStatement = dbconfig['formatSqlStatement']
 
