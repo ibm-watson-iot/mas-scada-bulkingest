@@ -346,23 +346,11 @@ if __name__ == "__main__":
         logger.info("Send events using MQTT")
         utils.sendEvent(config, df, dataPath, 0)
 
-        # update processedi status file
-        prname = dataPath+type+'/data/.processed'
-        f = open(prname,"w+")
-        f.write("{ \"processed\": %d , \"uploaded\":\"Y\" }" % rowsProcessed)
-        f.close()
-
     else:
 
         # Use JDBC to upload data
         logger.info("Upload data using JDBC driver")
 
-        # Init processed status file
-        prname = dataPath+type+'/data/.processed'
-        f = open(prname,"w+")
-        f.write("{ \"processed\": %d , \"uploaded\":\"N\" }" % rowsProcessed)
-        f.close()
-   
     if path.exists(dtypeProFile) == True:
         os.remove(dtypeProFile)
 

@@ -47,7 +47,6 @@ public class DBConnector {
     static String sourcePassword = "";
     static String dbType = "";
     static String csvFilePath = "";
-    static String prcFilePath = "";
     static String offFilePath = "";
     static String clnFilePath = "";
     static String smpFilePath = "";
@@ -212,7 +211,6 @@ public class DBConnector {
            
             // data files 
             csvFilePath = dataDir + "/volume/data/csv/" + tableName + ".csv";
-            prcFilePath = dataDir + "/volume/data/" + tableName + "/data/.processed";
             clnFilePath = dataDir + "/volume/data/" + tableName + "/schemas/" + tableName + ".dcols";
             smpFilePath = dataDir + "/volume/data/" + tableName + "/schemas/.sampleEventSent";
             prCsvFilePath = dataDir + "/volume/data/" + tableName + "/data/" + tableName + ".csv";
@@ -465,12 +463,9 @@ public class DBConnector {
                         int errCode = ((SQLException)qex).getErrorCode();
                         logger.info("Extract: SQLException error code: " + errCode);
                         if (errCode == 1146) {
-                            String offsetRec = "{\"startDate\":\"" + startDate + "\",\"startRow\":0,\"lastEndTS\":-1}";
-                            fw = new FileWriter(offFilePath);
-                            fw.write(offsetRec);
-                            fw.flush();
-                            fw.close();
+                            updateOffsetFile(offFilePath, startDate, 0, 0, -1);
                         }
+                        updateStatFile(fwStats, 0, 0, 0, 0, 0, 0, "N", 0);
                     }
                     throw qex;
                 }
@@ -527,22 +522,14 @@ public class DBConnector {
                 } else if ( l_t_stamp_convert == 1 ) {
                     l_t_stamp = Timestamp.valueOf(rs.getString(tstampColName)).getTime();
                 } 
-                String emsg = String.format("RowsExtracted: %d Last_tTtamp: %d", nRows, l_t_stamp);
-                logger.info(emsg);
+
+                logger.info(String.format("Data extracted: cols=%d rows=%d lastRow=%d lastTM=%d\n", columnCount, rowCount, nRows, l_t_stamp));
 
                 conn.close();
 
-                // get extracted csv file size
-                long csvFileSize = 0;
-                long prCsvFileSize = 0;
-                try {
-                    File exfile = new File(csvFilePath);
-                    csvFileSize = exfile.length();
-                } catch (Exception e) {}
+                // get extracted csv file size for stats
+                long csvFileSize = getFileSize(csvFilePath);
 
-                String dmsg = String.format("Data extracted: columns=%d  rows=%d\n", columnCount, rowCount); 
-                logger.info(dmsg);
-   
                 // Run script is specified
                 String[] command ={pythonPath, scriptPath, tableName, applyDDL}; 
                 logger.info("Executing script to transform data.");
@@ -559,101 +546,49 @@ public class DBConnector {
                 }
                 
                 // Upload data using batch insert
-                int nuploaded = 0;
+                int nuploaded = rowCount;
+                int nprocessed = chunkSize;
+                String uploaded = "N";
+
+                colsProcessed = 0;
                 if (rowCount > 0 && runMode == 0) {
-                    colsProcessed = 0;
                     nuploaded = batchInsert(datalake, tableName, ddlFilePath, prCsvFilePath);
-                } else {
-                    colsProcessed = 0;
-                    nuploaded = rowCount;
                 }
 
-                // get processed csv file size
-                try {
-                    File prfile = new File(prCsvFilePath);
-                    prCsvFileSize = prfile.length();
-                } catch (Exception e) {}
-
-                // oepn file to write processed data
-                if ( nuploaded > 0 || rowCount == 0 ) {
-                    fw = new FileWriter(prcFilePath);
-                    String procRec = "{ \"processed\":" + nuploaded + ", \"uploaded\":\"Y\" }";
-                    fw.write(procRec);
-                    fw.flush();
-                    fw.close();
+                // For testMode stop the loop
+                if ( runMode == 3 ) {
+                    logger.info("Test mode is enabled. Stop chuck processing loop");
+                    break;
                 }
-    
+
+                // check if next chunk needs to be processed
                 if ( nRows < chunkSize || useChunk == false  ) {
                     getNextChunk = false;
                 }
                 
-                // Update data offset file
-                // read number of rows processed by script
-                int nprocessed = chunkSize;
-                String uploaded = "N";
-                try {
-                    String prcfContent = new String ( Files.readAllBytes( Paths.get(prcFilePath)));
-                    JSONObject prcfObject = new JSONObject(prcfContent);
-                    nprocessed = prcfObject.getInt("processed");
-                    uploaded = prcfObject.getString("uploaded");
-                    String msg2 = String.format("Processsed: %d, uploaded: %s", nprocessed, uploaded);
-                    logger.info(msg2);
+                // Update last processed time based on upload status
+                if ( nuploaded > 0 || rowCount == 0 ) {
+                    nprocessed = nuploaded;
+                    uploaded = "Y";
+                } else {
+                    if (lastTmMillis == 0) lastTmMillis = curTmMillis;
+                    l_t_stamp += (curTmMillis - lastTmMillis);
                 }
-                catch (Exception e) {
-                    logger.info("Invalid nprocessed data, set to chunkSize." + e.getMessage());
-                    nprocessed = chunkSize;
-                }
-
-                // break the loop if no data is uploaded
-                if ( uploaded.compareTo("N") == 0 ) { 
-                    logger.info("No data is uploaded.");
-                    // Update last timestamp is no data is available to upload
-                    if (lastTmMillis == 0) {
-                        lastTmMillis = curTmMillis;
-                    } else {
-                        l_t_stamp += (curTmMillis - lastTmMillis);
-                        String offsetRec = "{\"startDate\":\"" + startDate + "\", \"startRow\":" + startRow + ", \"lastEndTS\":" + l_t_stamp + " }";
-                        fw = new FileWriter(offFilePath);
-                        fw.write(offsetRec);
-                        fw.flush();
-                        fw.close();
-                        lastTmMillis = curTmMillis;
-                    }
-                    break;
-                }
-
-                // Write upload stats for accounting and offsetRec for next update
-                // Do not close stats file
-                String statsMsg = "";
-                String offsetRec = "";
-                startRow = startRow + nprocessed;
-                Timestamp ts = new Timestamp(System.currentTimeMillis());
-                String curTime = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss").format(ts);
-                statsMsg = String.format(
-                    "%s, %d, %d, %d, %d, %d, %d, %s, %d\n",
-                    curTime, csvFileSize, columnCount, rowCount, prCsvFileSize, colsProcessed, nprocessed, uploaded, l_t_stamp);
-                offsetRec = "{\"startDate\":\"" + startDate + "\", \"startRow\":" + startRow + ", \"lastEndTS\":" + l_t_stamp + " }";
-                fwStats.write(statsMsg);
-                fwStats.flush();
-                fw = new FileWriter(offFilePath);
-                fw.write(offsetRec);
-                fw.flush();
-                fw.close();
                 lastTmMillis = curTmMillis;
 
-                // remove temprary process file
-                File prcfile = new File(prcFilePath);
-                prcfile.delete();
+                logger.info(String.format("Upload status - Processsed: %d, uploaded: %s", nprocessed, uploaded));
+
+                // get processed csv file size for stats
+                long prCsvFileSize = getFileSize(prCsvFilePath);
+
+                // update stats and offset files
+                updateStatFile(fwStats, csvFileSize, columnCount, rowCount, prCsvFileSize, colsProcessed, nprocessed, uploaded, l_t_stamp);
+                updateOffsetFile(offFilePath, startDate, startRow, nprocessed, l_t_stamp);
 
                 try {
                     Thread.sleep(5000);
                 } catch (Exception e) {}
 
-                // For testMode stop the loop
-                if ( runMode == 3 ) {
-                    getNextChunk = false;
-                    logger.info("Test mode is enabled. Stop chuck processing loop");
-                }
             }
         
             logger.info("Data processing cycle is complete.");
@@ -1015,4 +950,41 @@ public class DBConnector {
             logger.info("Exception information: " + ex.getMessage());
         }
     }
+
+    // Update offset file 
+    private static void updateOffsetFile(String offFilePath, String date, int startRow, int nprocessed, long ltm) {
+        int nextRow = startRow + nprocessed;
+        String offsetRec = "{\"startDate\":\"" + date + "\", \"startRow\":" + nextRow + ", \"lastEndTS\":" + ltm + "}";
+        try {
+            FileWriter fw = new FileWriter(offFilePath);
+            fw.write(offsetRec);
+            fw.flush();
+            fw.close();
+        } catch (Exception e) {}
+    }
+
+    // update stat file
+    private static void updateStatFile(FileWriter fwStats, long size, int col, int row, long psize, int pcol, int prow, String uploaded, long ltm) {
+        Timestamp ts = new Timestamp(System.currentTimeMillis());
+        String curTime = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss").format(ts);
+        String statsMsg = String.format(
+            "%s, %d, %d, %d, %d, %d, %d, %s, %d\n",
+            curTime, size, col, row, psize, pcol, prow, uploaded, ltm);
+        try {
+            fwStats.write(statsMsg);
+            fwStats.flush();
+        } catch (Exception e) {}
+    }
+
+    // get file size
+    private static long getFileSize(String filePath) {
+        long fileSize = 0;
+        try {
+            File exfile = new File(filePath);
+            fileSize = exfile.length();
+        } catch (Exception e) {}
+        return fileSize;
+    }
+
 }
+

@@ -346,14 +346,8 @@ def sendEvent(type, conncfg, df, dataPath, useDeviceId, registerSampleEvent, sam
     except Exception as exc:
         logger.info(exc.response.json())
 
-    # update processed status file
     if sampleEventCount == -1:
         logger.info("Create processed status file: " + str(nevents))
-        prname = dataPath+type+'/data/.processed'
-        f = open(prname,"w+")
-        f.write("{ \"processed\": %d , \"uploaded\":\"Y\" }" % nevents)
-        f.close()
-
 
 
 def getNextExtractionDate(startDate, lastEndTS, nCycle):
