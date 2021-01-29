@@ -986,5 +986,25 @@ public class DBConnector {
         return fileSize;
     }
 
+    // Heartbeat thread
+    private static void startHearbeatThread() {
+        String statusString = "0,0,0.0,,curDate,CONSTATUS,JPVType";
+        Runnable thread = new Runnable() {
+            public void run() {
+                while(true) {
+                    System.out.println("Heartbeat thread: send status");
+                    try {
+                        Thread.sleep(60000);
+                    } catch (Exception e) {}
+                }
+            }        
+        };
+        System.out.println("Starting thread..");
+        new Thread(thread).start();    //use start() instead of run()
+        System.out.println("Returning");
+        return;
+    }    
+
 }
+
 

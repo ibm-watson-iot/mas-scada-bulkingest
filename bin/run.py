@@ -142,7 +142,7 @@ if __name__ == "__main__":
     os.chdir(logdir)
 
     # Set logger file handler and level
-    hdlr = logging.FileHandler(logfile, mode='a', encoding=None, delay=False)
+    hdlr = logging.handlers.RotatingFileHandler(logfile, mode='a', maxBytes=1048576, backupCount=5, encoding=None, delay=False)
     formatter = logging.Formatter('%(asctime)s : %(levelname)s : %(filename)s %(levelno)r: %(message)s')
     hdlr.setFormatter(formatter)
     logger.addHandler(hdlr) 

@@ -214,6 +214,10 @@ def normalizeDataFrame(dataPath, inputFile, config, regreq):
         if deviceType != '':
             df['deviceType'] = deviceType
         else:
+            if config['type'] == "entity":
+                entityData['setType'] = config['client'] + "_Device_Type"
+            else:
+                entityData['setType'] = config['client'] + "_Alarm_Type"
             if 'setType' in entityData:
                 setType = entityData['setType']
                 df['deviceType'] = setType
@@ -223,10 +227,10 @@ def normalizeDataFrame(dataPath, inputFile, config, regreq):
         if 'deviceId' in entityData:
             deviceId = entityData['deviceId']
         if deviceId != '':
-            deviceIdPrefix = ""
+            deviceIdPrefix = config['client']
             if 'deviceIdPrefix' in entityData:
                 deviceIdPrefix = entityData['deviceIdPrefix']
-            deviceIdFormat = ""
+            deviceIdFormat = "UUID5"
             if 'deviceIdFormat' in entityData:
                 deviceIdFormat = entityData['deviceIdFormat']
             df['deviceId'] = df.apply (lambda row: set_deviceid_field(row, deviceId, deviceIdPrefix, deviceIdFormat, tagpath), axis=1)
@@ -257,7 +261,7 @@ def normalizeDataFrame(dataPath, inputFile, config, regreq):
             evtId = eventData['id']
         if evtId != '':
             df['EVENTID'] = df[evtId]
-        # Update empty fieldi of a column from alternate column field 
+        # Update empty field of a column from alternate column field 
         # Example - for alarm data, populate name from almname 
         if 'dataAltMap' in eventData:
             dataAltMap = eventData['dataAltMap']
@@ -313,7 +317,7 @@ def sendEvent(type, conncfg, df, dataPath, useDeviceId, registerSampleEvent, sam
         deviceId = type + "Id"
     token = wiotp["token"]
 
-    deviceOptions = {"org": orgid, "type": deviceType, "id": deviceId, "auth-method": "token", "auth-token": token}
+    deviceOptions = {"org": orgid, "type": deviceType, "id": deviceId, "auth-method": "token", "auth-token": token, "port": 443}
     client = ibmiotf.device.Client(deviceOptions)
 
     try:

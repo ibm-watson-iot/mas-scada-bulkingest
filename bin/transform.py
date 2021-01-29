@@ -58,6 +58,7 @@ def transformInputCSV(dataPath, interfaceId, inputFile, outputFile, type, conncf
     curtime = datetime.datetime.utcnow().isoformat().replace('T', ' ')
 
     # Normalize extracted data
+    config['client'] = conncfg['clientSite']
     df = utils.normalizeDataFrame(dataPath, inputFile, config, 0)
 
     # Add devices if not registered yet
@@ -85,7 +86,7 @@ def transformInputCSV(dataPath, interfaceId, inputFile, outputFile, type, conncf
     if 'DEVICETYPE' not in df.columns:
         df['DEVICETYPE'] = type.strip()
     if 'DEVICEID' not in df.columns:
-        df['DEVICEID'] = entityData['deviceIdPrefix']
+        df['DEVICEID'] = config['client']
     df['LOGICALINTERFACE_ID'] = interfaceId
     if 'EVENTTYPE' not in df.columns:
         df['EVENTTYPE'] = type.strip()+"Event"
@@ -157,6 +158,7 @@ def addDimensions(type, conncfg, config, df):
     if tagpath == '':
         return False
 
+    config['client'] = conncfg['clientSite']
     client = config['client']
 
     # Get parameters from config object
@@ -168,7 +170,7 @@ def addDimensions(type, conncfg, config, df):
     geo = wiotp["geo"]
 
     host = 'https://api-' + geo + '.connectedproducts.internetofthings.ibmcloud.com/api/master/v1/' + tenantId
-    api = '/entity/type/' + type + '/categorical'
+    api = '/entityType/' + type + '/dimensional'
     url = host + api
     logger.info("URL to register dimensions data: " + url)
 
@@ -191,12 +193,14 @@ def addDimensions(type, conncfg, config, df):
         siteitem = {}
         siteitem['id'] = idname
         siteitem['name'] = "CLIENT"
+        siteitem['type'] = "LITERAL"
         siteitem['value'] = client
         payload.append(siteitem)
         # Add complete tagpath as dimension data
         tagpathitem = {}
         tagpathitem['id'] = idname
         tagpathitem['name'] = "TAGPATH"
+        tagpathitem['type'] = "LITERAL"
         tagpathitem['value'] = tpath
         payload.append(tagpathitem)
         # Parse tagpath and add all leaves of tagpath as dimension data
@@ -208,6 +212,7 @@ def addDimensions(type, conncfg, config, df):
             item = {}
             item['id'] = idname
             item['name'] = dimname
+            item['type'] = "LITERAL"
             item['value'] = dimvalue
             payload.append(item)
 
@@ -265,7 +270,7 @@ if __name__ == "__main__":
     os.chdir(logdir)
 
     # Set logger file handler and level
-    hdlr = logging.FileHandler(logfile, mode='a', encoding=None, delay=False)
+    hdlr = logging.handlers.RotatingFileHandler(logfile, mode='a', maxBytes=1048576, backupCount=5, encoding=None, delay=False)
     formatter = logging.Formatter('%(asctime)s : %(levelname)s : %(filename)s %(lineno)d: %(message)s')
     hdlr.setFormatter(formatter)
     logger.addHandler(hdlr)
@@ -308,6 +313,8 @@ if __name__ == "__main__":
         logger.info("Load connection configuration.")
         conncfg = json.load(configFD)
         configFD.close()
+
+    config['client'] = conncfg['clientSite']
 
     # Read column tiles from file
     logger.info("Use table column titles:")
