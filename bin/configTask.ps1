@@ -1,19 +1,19 @@
 #
 # IBM Maximo Application Suite - SCADA Bulk Data Ingest Connector
 # *****************************************************************************
-# Copyright (c) 2020 IBM Corporation and other Contributors.
+# Copyright (c) 2020-2021 IBM Corporation and other Contributors.
 # All rights reserved. This program and the accompanying materials
 # are made available under the terms of the Eclipse Public License v1.0
 # which accompanies this distribution, and is available at
 # http://www.eclipse.org/legal/epl-v10.html
 # *****************************************************************************
 #
-# Windows Powershell Script to install IBM MAS Data Connector on Windows Servers
+# Powershell Script to configure IBM MAS Data Connector tasks on Windows Servers
 #
 # To run this script, you need Admin priviledges. Open a Windows command propmt
 # with Admin privilege and run the following command:
 #
-# c:> powershell.exe -ExecutionPolicy Bypass .\bin\install.ps1
+# c:> powershell.exe -ExecutionPolicy Bypass .\bin\configTask.ps1
 #
 
 # Update these variables if required
@@ -23,34 +23,6 @@ $DataPath = "C:\IBM\masdc"
 # ----------------------------------------------------------------------------
 #           Do not make any changes beyond this line
 #
-
-# Create installation directory
-Write-Host "Creating Installation directory $InstallPath"
-if(!(Test-Path $InstallPath))
-{
-    New-Item -Path "$InstallPath" -ItemType Directory
-}
-
-# Download connector
-Write-Host "Downloading connector packages"
-$path = ".\connector.zip"
-if(!(Test-Path $path))
-{
-    Invoke-WebRequest -Uri "https://dataingest.s3.us-south.cloud-object-storage.appdomain.cloud/connector.zip" -OutFile ".\connector.zip"
-}
-
-# Expand Connector code
-Write-Host "Expanding connector.zip, and copying binaries and libraries in C:\IBM\masdc"
-$path = ".\connector\mas-scada-bulkingest-master"
-if(!(Test-Path $path))
-{
-    Expand-Archive -Path connector.zip
-}
-$path = "$InstallPath\bin"
-if(!(Test-Path $path))
-{
-    Copy-Item -Path .\connector\masdc -Recurse -Destination "$InstallPath\masdc"
-}
 
 # Create Data dir
 Write-Host "Creating Data directory $DataPath"
@@ -81,8 +53,8 @@ $xmlentity = @"
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
     <Author>IBM</Author>
-    <Description>Uploads entity data from SCADA historian to IBM MAS for Monitoring</Description>
-    <URI>\IBM\Maximo Application Suite\Entity Data Upload Task</URI>
+    <Description>Uploads device data from SCADA historian to IBM MAS for Monitoring</Description>
+    <URI>\IBM\Maximo Application Suite\IBMMASDeviceDataUpload</URI>
   </RegistrationInfo>
   <Triggers>
     <RegistrationTrigger>
@@ -126,8 +98,8 @@ $xmlentity = @"
   </Settings>
   <Actions Context="Author">
     <Exec>
-      <Command>cmd</Command>
-      <Arguments>/K "C:\IBM\masdc\bin\connector.bat" entity</Arguments>
+      <Command>c:\ibm\masdc\jre\bin\java.exe</Command>
+      <Arguments>-classpath "c:\ibm\masdc\jre\lib\*;c:\ibm\masdc\lib\*" com.ibm.wiotp.masdc.Connector device</Arguments>
       <WorkingDirectory>C:\IBM\masdc\volume\logs</WorkingDirectory>
     </Exec>
   </Actions>
@@ -135,7 +107,7 @@ $xmlentity = @"
 "@
 
 # Register entity upload task
-$taskName = "IBMMASEntityDataUpload"
+$taskName = "IBMMASDeviceDataUpload"
 $taskPath = "\IBM\Maximo Application Suite"
 Register-ScheduledTask -Xml $xmlentity -TaskName $taskName -TaskPath $taskPath
 
@@ -147,7 +119,7 @@ $xmlalarm = @"
   <RegistrationInfo>
     <Author>IBM</Author>
     <Description>Uploads alarm data from SCADA historian to IBM MAS for Monitoring</Description>
-    <URI>\IBM\Maximo Application Suite\Alarm Data Upload Task</URI>
+    <URI>\IBM\Maximo Application Suite\IBMMASAlarmDataUpload</URI>
   </RegistrationInfo>
   <Triggers>
     <RegistrationTrigger>
@@ -191,8 +163,8 @@ $xmlalarm = @"
   </Settings>
   <Actions Context="Author">
     <Exec>
-      <Command>cmd</Command>
-      <Arguments>/K "C:\IBM\masdc\bin\connector.bat" alarm</Arguments>
+      <Command>c:\ibm\masdc\jre\bin\java.exe</Command>
+      <Arguments>-classpath "c:\ibm\masdc\jre\lib\*;c:\ibm\masdc\lib\*" com.ibm.wiotp.masdc.Connector alarm</Arguments>
       <WorkingDirectory>C:\IBM\masdc\volume\logs</WorkingDirectory>
     </Exec>
   </Actions>

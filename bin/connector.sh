@@ -3,7 +3,7 @@
 # IBM Maximo Application Suite - SCADA Bulk Data Ingest Connector
 #
 # *****************************************************************************
-# Copyright (c) 2019 IBM Corporation and other Contributors.
+# Copyright (c) 2019-2021 IBM Corporation and other Contributors.
 #
 # All rights reserved. This program and the accompanying materials
 # are made available under the terms of the Eclipse Public License v1.0
@@ -19,18 +19,7 @@ export DI_BIN
 DI_LIB="${DI_HOME}/lib"
 export DI_LIB
 
-PYTHON_HOME="${DI_HOME}/python-3.7.5"
-export PYTHON_HOME
+CP="${DI_HOME}/jre/lib/*:${DI_HOME}/lib/*"
 
-if [ -d ${PYTHON_HOME} ]
-then
-    PATH=$PATH:${DI_BIN}:${PYTHON_HOME}
-    export PATH
-    ${PYTHON_HOME}/python ${DI_BIN}/run.py "$@"
-else
-    PATH=$PATH:${DI_BIN}
-    export PATH
-    python3 ${DI_BIN}/run.py "$@"
-fi
-
+${DI_HOME}/jre/bin/java -classpath "${CP}" com.ibm.wiotp.masdc.Connector "$@"
 
