@@ -2,6 +2,7 @@ package com.ibm.wiotp.masdc;
 
 import org.junit.rules.ExpectedException;
 import org.junit.Before;
+import org.junit.After;
 import org.junit.Rule;
 import org.junit.ClassRule;
 import org.junit.Assert;
@@ -78,7 +79,7 @@ public class OffsetRecordTest {
         currentMonth = duc.getMonth();
         currentYear = duc.getYear();
     }      
- 
+
 
     @Test
     public void testOffsetRecord_01() {
@@ -225,7 +226,7 @@ public class OffsetRecordTest {
     public void testOffsetRecord_04() {
 
         System.out.println("");
-        System.out.println("TEST_02: testOffsetRecordNoDataOldRecFile");
+        System.out.println("TEST_04: testOffsetRecordNoDataOldRecFile");
         System.out.println("");
 
         OffsetRecord offRec = new OffsetRecord(config, false);
@@ -240,6 +241,9 @@ public class OffsetRecordTest {
 
         assertEquals(currentYear, year);
         assertEquals(currentMonth, month);
+
+        // remove temp offset file
+        offRec.deleteOffsetFile();
 
     }
 

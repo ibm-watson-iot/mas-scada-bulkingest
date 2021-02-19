@@ -1,0 +1,33 @@
+{
+    "clientSite": "TestClient",
+    "deviceType": "MY_Device_Type",
+    "alarmType": "MY_Alarm_Type",
+    "startDate": "2020-12-01 00:00:00",
+    "fetchInterval": 30,
+    "fetchIntervalHistorical": 21600,
+    "runMode": 0,
+    "wiotp": {
+        "orgId": "xxxxxx",
+	"key": "a-xxxxxx-95txn93it8",
+        "token" : "l679-V4LmHP-N?b46l",
+        "tenantId": "beta-2",
+        "geo": "beta"
+    },
+    "monitor": {
+        "dbtype": "Db2Warehouse",
+        "host": "db2w-xxxxxxx.us-south.db2w.cloud.ibm.com",
+        "port": "50001",
+        "schema": "BLUADMIN",
+        "user": "bluadmin",
+        "password": "w08Y4FXmd_eFE47gsI8Ttcx9JIlHk"
+    },
+    "ignition": {
+        "dbtype": "mysql",
+        "host": "127.0.0.1",
+        "port": "3306",
+        "schema": "ignition",
+        "database": "ignition",
+        "user": "root",
+        "password": "root"
+    }
+}

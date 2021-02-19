@@ -120,6 +120,14 @@ public class OffsetRecord {
     public String getOffsetFile() {
         return offsetFile;
     }
+
+    public void deleteOffsetFile() {
+        try {
+            // delete existing offset file
+            File f = new File(offsetFile);
+            f.delete();
+        } catch(Exception e) {}
+    }
         
     public int updateOffsetFile(long lastStartTimeSecs, long lastEndTimeSecs, int lastYear, int lastMonth, int status) {
 
