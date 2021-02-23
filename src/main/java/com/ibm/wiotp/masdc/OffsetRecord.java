@@ -52,6 +52,7 @@ public class OffsetRecord {
     private static AtomicLong processedCount = new AtomicLong(0);
     private static AtomicLong uploadedCount = new AtomicLong(0);
     private static AtomicLong rate = new AtomicLong(0);
+    private static int currTimeWindowCycle = 0;
 
     public OffsetRecord(Config config, boolean newOffsetFile) {
         this.connectorType = config.getConnectorType();
@@ -61,9 +62,10 @@ public class OffsetRecord {
         if (dataDir.equals("")) {
             offsetFile = config.getEntityType() + ".offset";
         } else {
-            offsetFile = config.getDataDir() + "/volume/config/" + config.getEntityType() + ".offset";
+            offsetFile = config.getDataDir() + "/volume/data/" + config.getEntityType() + ".offset";
         }
         offsetInterval = config.getFetchInterval();
+        if (offsetInterval > 120) offsetInterval = 120;
         offsetIntervalHistorical = config.getFetchIntervalHistorical();
 
         if (newOffsetFile) {
@@ -129,6 +131,20 @@ public class OffsetRecord {
         } catch(Exception e) {}
     }
         
+    public long getWaitTimeMilli(int waitFlag, long cycleStartTimeMillis) {
+        long waitTime = 100;
+        if (waitFlag == 1) {
+            long cycleEndTimeMillis = System.currentTimeMillis();
+            long timeDiff = (cycleEndTimeMillis - cycleStartTimeMillis) / 1000;
+            if (timeDiff < offsetInterval) {
+                waitTime = (offsetInterval - timeDiff) * 1000;
+            }
+        } else if (waitFlag == 2) {
+            waitTime = offsetInterval * 1000;
+        }
+        return waitTime;
+    }
+
     public int updateOffsetFile(long lastStartTimeSecs, long lastEndTimeSecs, int lastYear, int lastMonth, int status) {
 
         int retval = 0;
@@ -220,20 +236,34 @@ public class OffsetRecord {
         month = du.getMonth();
         year = du.getYear();
 
-        if (startTimeSecs > duc.getTimeSecs()) {
+        if (year == duc.getYear() && month == duc.getMonth()) {
+            retval = 1;
+            // use fectch interval as 30 seconds
+            // start and endtime can not be more than current time
+            if (currTimeWindowCycle == 0) {
+                // start from 00:00:00 of 1st of the month
+                String newDateStr = String.format("%4d-%02d-01 00:00:00", year, month);
+                DateUtil ndu = new DateUtil(newDateStr);
+                startTimeSecs = ndu.getTimeSecs();
+                endTimeSecs = startTimeSecs + offsetInterval;
+                currTimeWindowCycle = 1;
+            } else {
+                if (endTimeSecs < duc.getTimeSecs()) {
+                    retval = 0;
+                }
+            }
+        } else if (startTimeSecs > duc.getTimeSecs()) {
             // configured time is in future - log and set to current time
-            logger.info("Configured start time is in future. Starting from current system time.");
+            logger.info(String.format("Start time (%d) is more than current time (%d). Starting from current system time.", startTimeSecs, duc.getTimeSecs()));
             startTimeSecs = duc.getTimeSecs();
             endTimeSecs = startTimeSecs + offsetInterval;
             month = duc.getMonth();
             year = duc.getYear();
+            // set retval = 2 for fetch cycle to sleep for offsetInterval before trying next fetch
+            retval = 2;
         } else {
-            if (year < duc.getYear()) {
+            if (year < duc.getYear() || month < duc.getMonth()) {
                 endTimeSecs = startTimeSecs + offsetIntervalHistorical;
-                retval = 1;
-            } else if (month < duc.getMonth()) {
-                endTimeSecs = startTimeSecs + offsetIntervalHistorical;
-                retval = 1;
             }
         }
 
@@ -248,7 +278,6 @@ public class OffsetRecord {
         writeOffsetFile(ofrec.toString());
         return retval;
     }
-
 
     private static void writeOffsetFile(String offsetRec) {
         try {

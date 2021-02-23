@@ -24,7 +24,7 @@ public class Constants {
     public static final int AUTH_BASIC = 1;
     public static final int AUTH_HEADER = 2;
 
-    public static final int HB_TAGS = 2;
+    public static final int HB_TAGS = 3;
 }
 
 

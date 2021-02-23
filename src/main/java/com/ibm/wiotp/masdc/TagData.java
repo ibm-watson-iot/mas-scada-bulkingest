@@ -9,12 +9,14 @@
 
 package com.ibm.wiotp.masdc;
 
-public class TagData {
+import java.io.Serializable;
+
+public class TagData implements Serializable {
 
     private String tagpath;
     private String deviceId;
-    private int deviceStatus = 0;
-    private int dimensionStatus = 0;
+    private int deviceStatus = 0; // 0-NotCreatedYet 1-Created
+    private int dimensionStatus = 0; // 0-NotAddedYet 1-Added
 
     public TagData(String tagpath, String deviceId) {
         this.tagpath = tagpath;

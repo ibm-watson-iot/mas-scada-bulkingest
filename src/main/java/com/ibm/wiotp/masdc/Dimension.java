@@ -15,6 +15,10 @@ import java.util.concurrent.*;
 import java.util.logging.*;
 import org.json.JSONObject;
 import org.json.JSONArray;
+import java.util.Set;
+import java.util.Iterator;
+import org.apache.commons.jcs3.JCS;
+import org.apache.commons.jcs3.access.CacheAccess;
 
 public class Dimension {
 
@@ -40,90 +44,66 @@ public class Dimension {
         this.restClient = new RestClient(baseUrl, 2, wiotp.getString("key"), wiotp.getString("token"), config.getPostResponseFile());
     }
 
-    public void apply(HashMap<String, String> tagpaths) {
-        int batchCount = 1;
-        int totalCount = tagpaths.size();
+    public void apply(CacheAccess<String, TagData> tagpaths) {
+        int dimAdded = 0;
+        int dimRegistered = 0;
+        int batchCount = 0;
+        int totalCount = tagpaths.getCacheControl().getSize();
         JSONArray dimensionObj = null;
         logger.info(String.format("Dimension Data: Tagpath count: %d", totalCount));
-        for (String tagpath : tagpaths.keySet()) {
-            if (batchCount == 1 ) dimensionObj = new JSONArray();
-            String id = tagpaths.get(tagpath);
 
-            logger.info("tagpath: " + tagpath + "    Dimention ID: " + id);
-
-            dimensionObj.put(createDimItem(id, "CLIENT", "LITERAL", client));
-            dimensionObj.put(createDimItem(id, "TAGPATH", "LITERAL", tagpath));
-            batchCount += 2;
-
-            String[] tagLevels = tagpath.split("/");
-            int levelCount = 0;
-            for (String level : tagLevels) {
-                dimensionObj.put(createDimItem(id, "LEVEL_" + Integer.toString(levelCount) , "LITERAL", level));
-                levelCount += 1;
-                batchCount += 1;
-            }
-
-            totalCount = totalCount - 1;
- 
-            if (batchCount >= 80 || totalCount <= 1) {
-                try {
-                    // invoke API to create dimensional data
-                    logger.info("DimensionObj:   " + dimensionObj.toString());
-                    restClient.post(dimensionalAPI, dimensionObj.toString());
-                    logger.info(String.format("Dimension POST Status Code: %d", restClient.getResponseCode()));
-                } catch(Exception ex) {
-                    logger.log(Level.INFO, ex.getMessage(), ex);
-                }
+        Set<String> tagList = tagpaths.getCacheControl().getKeySet();
+        Iterator<String> it = tagList.iterator();
+        while (it.hasNext()) {
+            if (batchCount == 0 ) {
+                dimensionObj = new JSONArray();
                 batchCount = 1;
             }
-        }
-    }
 
-    public void apply(ConcurrentHashMap<String, TagData> tagpaths) {
-        int batchCount = 1;
-        int totalCount = tagpaths.size();
-        JSONArray dimensionObj = null;
-        logger.info(String.format("Dimension Data: Tagpath count: %d", totalCount));
-        for (Map.Entry<String, TagData> e : tagpaths.entrySet()) {
-            if (batchCount == 1 ) dimensionObj = new JSONArray();
-
-            TagData td = e.getValue();
-            String id = td.getDeviceId();
+            String id = it.next();
+            TagData td = tagpaths.get(id);
+            if (td == null) {
+                totalCount = totalCount - 1;
+                continue;
+            }
+            String deviceId = td.getDeviceId();
             String tagpath = td.getTagpath();
             int dimensionStatus = td.getDimensionStatus();
 
             if (dimensionStatus == 0) {
-                logger.fine("Add dimension: tagpath: " + tagpath + "    Dimention ID: " + id);
-                dimensionObj.put(createDimItem(id, "CLIENT", "LITERAL", client));
-                dimensionObj.put(createDimItem(id, "TAGPATH", "LITERAL", tagpath));
+                logger.info("Add dimension: tagpath: " + tagpath + "    Dimention ID: " + deviceId);
+                dimensionObj.put(createDimItem(deviceId, "CLIENT", "LITERAL", client));
+                dimensionObj.put(createDimItem(deviceId, "TAGPATH", "LITERAL", tagpath));
                 batchCount += 2;
                 td.setDimensionStatus(1);
     
                 String[] tagLevels = tagpath.split("/");
                 int levelCount = 0;
                 for (String level : tagLevels) {
-                    dimensionObj.put(createDimItem(id, "LEVEL_" + Integer.toString(levelCount) , "LITERAL", level));
+                    dimensionObj.put(createDimItem(deviceId, "LEVEL_" + Integer.toString(levelCount) , "LITERAL", level));
                     levelCount += 1;
                     batchCount += 1;
                 }
-    
-                totalCount = totalCount - 1;
-     
-                if (batchCount >= 80 || totalCount <= 1) {
-                    try {
-                        // invoke API to create dimensional data
-                        logger.info("DimensionObj:   " + dimensionObj.toString());
-                        restClient.post(dimensionalAPI, dimensionObj.toString());
-                        logger.info(String.format("Dimension POST Status Code: %d", restClient.getResponseCode()));
-                    } catch(Exception ex) {
-                        logger.log(Level.INFO, ex.getMessage(), ex);
-                    }
-                    batchCount = 1;
-                }
+                dimAdded += 1;
             } else {
-                logger.fine("Dimension was already added: tagpath: " + tagpath + "    Dimention ID: " + id);
+                logger.fine("Dimension was already added: tagpath: " + tagpath + "    Dimention ID: " + deviceId);
+                dimRegistered += 1;
             }
+ 
+            if (batchCount >= 80 || totalCount == 1) {
+                try {
+                    // invoke API to create dimensional data
+                    logger.fine("DimensionObj:   " + dimensionObj.toString());
+                    restClient.post(dimensionalAPI, dimensionObj.toString());
+                    logger.info(String.format("Dimension POST Status Code: %d", restClient.getResponseCode()));
+                } catch(Exception ex) {
+                    logger.log(Level.INFO, ex.getMessage(), ex);
+                }
+                batchCount = 0;
+            }
+            totalCount = totalCount - 1;
         }
+        logger.info(String.format("DimensionCycle TotalRemaining:%d New:%d AlreadyRegistered:%d", totalCount, dimAdded, dimRegistered));
     }
 
     private static JSONObject createDimItem(String id, String name, String type, String value) {

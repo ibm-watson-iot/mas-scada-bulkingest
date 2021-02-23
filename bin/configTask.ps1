@@ -100,7 +100,7 @@ $xmlentity = @"
     <Exec>
       <Command>c:\ibm\masdc\jre\bin\java.exe</Command>
       <Arguments>-classpath "c:\ibm\masdc\jre\lib\*;c:\ibm\masdc\lib\*" com.ibm.wiotp.masdc.Connector device</Arguments>
-      <WorkingDirectory>C:\IBM\masdc\volume\logs</WorkingDirectory>
+      <WorkingDirectory>C:\IBM\masdc\volume\data</WorkingDirectory>
     </Exec>
   </Actions>
 </Task>
@@ -165,7 +165,7 @@ $xmlalarm = @"
     <Exec>
       <Command>c:\ibm\masdc\jre\bin\java.exe</Command>
       <Arguments>-classpath "c:\ibm\masdc\jre\lib\*;c:\ibm\masdc\lib\*" com.ibm.wiotp.masdc.Connector alarm</Arguments>
-      <WorkingDirectory>C:\IBM\masdc\volume\logs</WorkingDirectory>
+      <WorkingDirectory>C:\IBM\masdc\volume\data</WorkingDirectory>
     </Exec>
   </Actions>
 </Task>

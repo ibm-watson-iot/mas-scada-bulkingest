@@ -14,9 +14,11 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.FileOutputStream;
+import java.io.FileInputStream;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.util.Properties;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.List;
@@ -32,7 +34,10 @@ import java.util.logging.*;
 import java.util.Date;
 import java.util.UUID;
 import java.text.SimpleDateFormat;
-import org.json.*;
+import org.json.JSONObject;
+import org.json.JSONArray;
+import org.apache.commons.jcs3.JCS;
+import org.apache.commons.jcs3.access.CacheAccess;
 
 
 // Extract data from SCADA historian database (mySQL and MSSQL), dump in a csv file,
@@ -59,7 +64,9 @@ public class Connector {
     static String[] masHBDevices = { "masExtract", "masUpload", "masRate"};
     static String[] masHBStatNames = {"extracted", "uploaded", "rate"};
     static int[] masHBTagIds = {-9001, -9002, -9003};
-    static ConcurrentHashMap<String, TagData> tagpaths = new ConcurrentHashMap<String, TagData>(10000);
+    static CacheAccess<String, TagData> tagpaths = null;
+    static String cacheName = null;
+    static int totalTagCount = 0;
 
 
     /**
@@ -130,11 +137,14 @@ public class Connector {
             fh.setFormatter(formatter);
             logger.removeHandler(consoleHandler);
 
+            // Get config objects
             tableName = config.getEntityType();
             connectorType = config.getConnectorType();
             client = config.getClientSite();
             runMode = config.getRunMode();
-            offsetRecord = new OffsetRecord(config, false);
+            scada = config.getIgnitionConfig();
+            datalake = config.getMonitorConfig();
+            wiotp = config.getWiotpConfig();
 
             logger.info("MAS Data connector for Ignition SCADA historian.");
             logger.info("Client Site: " + client);
@@ -142,13 +152,15 @@ public class Connector {
             logger.info("Monitor Table Name: IOT_" + tableName.toUpperCase());
             logger.info(String.format("Run mode: %d", runMode));
 
-            // Get config objects
-            scada = config.getIgnitionConfig();
-            datalake = config.getMonitorConfig();
-            wiotp = config.getWiotpConfig();
-
-            // data files 
-            csvFilePath = dataDir + "/volume/data/csv/" + tableName + ".csv";
+            // init objects and set required file paths
+            offsetRecord = new OffsetRecord(config, false);
+            cacheName = tableName + ".tags";
+            // String cacheConfig = dataDir + "/volume/config/tagCache.ccf";
+            // Properties props = new Properties(); 
+            // props.load(new FileInputStream(cacheConfig)); 
+            // JCS.setConfigProperties(props); 
+            tagpaths = JCS.getInstance(cacheName);
+            csvFilePath = dataDir + "/volume/data/" + tableName + ".csv";
 
             // Create device type
             DeviceType deviceType = new DeviceType(config, client, cType, tableName, wiotp);
@@ -167,26 +179,23 @@ public class Connector {
             monTable.create();
             // monTable.indexTable();
 
-            // HeartBeat stuff
+            // Add HeartBeat tags in tag cache
             for (int i=0; i < Constants.HB_TAGS; i++) {
                 String masHbTag = masHBDevices[i] + "/" + masHBStatNames[i];
-                HashMap<String, String> hbtag = new HashMap<String, String>();
-                hbtag.put(masHbTag, masHBDevices[i]);
-                logger.info("Add HeartBeatTag device: " + masHbTag);
-                Device devicehb = new Device(config, client, cType, tableName, wiotp);
-                devicehb.apply(hbtag);
-                logger.info("Add dimension data for HeartBeatTag: " + masHbTag);
-                Dimension dimhb = new Dimension(config, client, cType, tableName, wiotp);
-                dimhb.apply(hbtag);
-                hbtag.clear();
+                TagData td = new TagData(masHbTag, masHBDevices[i]);
+                tagpaths.put(masHbTag, td);
+                totalTagCount += 1;
             }
 
+            // start data processing threads
             startHearbeatThread();
             startDeviceThread();
             startDimensionThread();
 
             // Start extract data, and upload loop
             extractAndUpload();
+
+            JCS.shutdown();
 
         } catch (Exception ex) {
             logger.log(Level.INFO, ex.getMessage(), ex);
@@ -229,8 +238,8 @@ public class Connector {
                 int month = offsetRecord.getMonth();
                 int year = offsetRecord.getYear();
 
-                logger.info(String.format("Extract: StartTime:%d EndTime:%d Year:%d Month:%d", 
-                    startTimeSecs, endTimeSecs, year, month));
+                logger.info(String.format("StartTime:%d EndTime:%d Year:%d Month:%d currTime:%d", 
+                    startTimeSecs, endTimeSecs, year, month, (cycleStartTimeMillis/1000)));
 
                 String querySql = config.getIgnitionDBSql(startTimeMilli, endTimeMilli, year, month);
                 if (runMode != Constants.PRODUCTION) {
@@ -268,7 +277,7 @@ public class Connector {
 
                 if (gotData == 0) {
                     try {
-                        Thread.sleep(1000);
+                        Thread.sleep(500);
                     } catch (Exception e) {}
                     continue;
                 }
@@ -302,6 +311,7 @@ public class Connector {
                 }
 
                 long rowCount = 0;
+                long lastTimeStamp = 0;
                 while (rs.next()) {
                     sourceMap.get("DEVICETYPE").add(tableName);
                     sourceMap.get("EVENTTYPE").add(cType);
@@ -315,7 +325,10 @@ public class Connector {
                                 String tagpath = rs.getString(i);
                                 String data = UUID.nameUUIDFromBytes(tagpath.getBytes()).toString();
                                 TagData td = new TagData(tagpath, data);
-                                tagpaths.putIfAbsent(tagpath, td);
+                                try {
+                                    tagpaths.putSafe(tagpath, td);
+                                    totalTagCount += 1;
+                                } catch(Exception e) {}
                                 sourceMap.get("DEVICEID").add(data);
                                 String[] tagelems = tagpath.split("/");
                                 if (connectorType == 1) {
@@ -323,7 +336,8 @@ public class Connector {
                                 }
                                 if (fw != null) fw.append(data);
                             } else if (colName.equals("t_stamp")) {
-                                Timestamp ts = new Timestamp(rs.getLong(i));
+                                lastTimeStamp = rs.getLong(i);
+                                Timestamp ts = new Timestamp(lastTimeStamp);
                                 sourceMap.get("RCV_TIMESTAMP_UTC").add(ts);
                                 sourceMap.get("UPDATED_UTC").add(ts);
                                 if (fw != null) fw.append(ts.toString());
@@ -355,22 +369,25 @@ public class Connector {
                     fw.flush();
                     fw.close();
                 }
-               
                 rs.close();
                 conn.close();
 
                 long currentTotalCount = offsetRecord.setProcessedCount(rowCount);
-                logger.info(String.format("Data extracted: cols=%d rows=%d currentTotal=%d\n", 
-                    columnCount, rowCount, currentTotalCount));
 
                 if (rowCount == 0) {
-                    int noWait = offsetRecord.updateOffsetFile(startTimeSecs, endTimeSecs, year, month, offsetRecord.STATUS_TABLE_NO_DATA);
-                    try {
-                        Thread.sleep(2000);
-                    } catch (Exception e) {}
                     sourceMap.clear();
+                    int waitFlag = offsetRecord.updateOffsetFile(startTimeSecs, endTimeSecs, year, month, offsetRecord.STATUS_TABLE_NO_DATA);
+                    long waitTime = offsetRecord.getWaitTimeMilli(waitFlag, cycleStartTimeMillis);
+                    logger.info(String.format("No Data extracted: currCount=%d waitTimeMilli=%d currTagCount=%d\n", 
+                        currentTotalCount, waitTime, totalTagCount));
+                    try {
+                        Thread.sleep(waitTime);
+                    } catch (Exception e) {}
                     continue;
                 }
+
+                logger.info(String.format("Data extracted: cols=%d rows=%d currCount=%d currTagCount=%d\n", 
+                    columnCount, rowCount, currentTotalCount, totalTagCount));
 
                 int nuploaded = 0;
                 if (rowCount > 0) {
@@ -380,32 +397,25 @@ public class Connector {
 
                 sourceMap.clear();
 
-                int noWait = offsetRecord.updateOffsetFile(startTimeSecs, endTimeSecs, year, month, offsetRecord.STATUS_TABLE_WITH_DATA);
+                int waitFlag = offsetRecord.updateOffsetFile(startTimeSecs, endTimeSecs, year, month, offsetRecord.STATUS_TABLE_WITH_DATA);
+                long waitTime = offsetRecord.getWaitTimeMilli(waitFlag, cycleStartTimeMillis);
+
+                // calculate record processing rate
+                cycleEndTimeMillis = System.currentTimeMillis();
+                long timeDiff = (cycleEndTimeMillis - cycleStartTimeMillis);
+                long rate = rowCount * 1000 / timeDiff;
+                offsetRecord.setRate(rate);
+
+                logger.info(String.format("Cycle stats: extracted:%d uploaded=%d rate=%d waitTimeMilli=%d currTagCount=%d\n", 
+                        rowCount, nuploaded, rate, waitTime, totalTagCount));
 
                 if (runMode == Constants.TEST) {
                    break;
                 }
 
-                cycleEndTimeMillis = System.currentTimeMillis();
-                long timeDiff = (cycleEndTimeMillis - cycleStartTimeMillis);
-                long rate = rowCount * 1000 / timeDiff;
-                offsetRecord.setRate(rate);
-                long curTmSec = cycleEndTimeMillis /1000;
-                if (endTimeSecs < curTmSec) {
-                    // there is no need to wait for the calculated wait time
-                    try {
-                        Thread.sleep(100);
-                    } catch (Exception e) {}
-
-                } else {
-
-                    long waitTime = offsetRecord.offsetInterval - (timeDiff/1000);
-                    if (noWait == 0 && waitTime > 0) {
-                        try {
-                            Thread.sleep(waitTime * 1000);
-                        } catch (Exception e) {}
-                    }
-                }
+                try {
+                    Thread.sleep(waitTime);
+                } catch (Exception e) {}
             }
         
             logger.info("Data processing cycle is complete.");
@@ -557,16 +567,12 @@ public class Connector {
     private static void startDeviceThread() {
         Runnable thread = new Runnable() {
             public void run() {
-                // add some deplay to start run this thread for initial tagpath cache to build
-                try {
-                    Thread.sleep(5000);
-                } catch (Exception e) {}
                 Device device = new Device(config, client, cType, tableName, wiotp);
                 while(true) {
                     logger.info("Start add devices cycle");
                     device.apply(tagpaths);
                     try {
-                        Thread.sleep(5000);
+                        Thread.sleep(10000);
                     } catch (Exception e) {}
                 }
             }        
@@ -582,16 +588,12 @@ public class Connector {
     private static void startDimensionThread() {
         Runnable thread = new Runnable() {
             public void run() {
-                // add some deplay to start run this thread for initial tagpath cache to build
-                try {
-                    Thread.sleep(5000);
-                } catch (Exception e) {}
                 Dimension dim = new Dimension(config, client, cType, tableName, wiotp);
                 while(true) {
                     logger.info("Start add dimension data cycle");
                     dim.apply(tagpaths);
                     try {
-                        Thread.sleep(5000);
+                        Thread.sleep(10000);
                     } catch (Exception e) {}
                 }
             }        

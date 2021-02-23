@@ -53,12 +53,12 @@ chmod +x ${MASDCHOME}/bin/*.sh
 #
 mkdir -p ${MASDCHOME}
 mkdir -p ${MASDCHOME}/volume/logs
-mkdir -p ${MASDCHOME}/volume/data/csv
+mkdir -p ${MASDCHOME}/volume/data
 mkdir -p ${MASDCHOME}/volume/config
 
 #
 # Install dependencies
-# OpenJDK, Python and required Python pkgs
+# OpenJDK
 #
 if [ ! -d ${MASDCHOME}/jre ]; then
 
@@ -82,55 +82,4 @@ if [ ! -d ${MASDCHOME}/jre ]; then
 fi
 
 echo
-
-
-# Install Python
-python3 --version
-retval=$?
-if [ $retval -eq 0 ]; then
-    echo "Python is already installed"
-else
-    mkdir -p ${MASDCHOME}/pkgs
-    cd ${MASDCHOME}/pkgs
-    if [ "${OSNAME}" == "MacOS" ]; then
-        echo "Download Python"
-        curl https://www.python.org/ftp/python/3.8.1/python-3.8.1-macosx10.9.pkg -L -o python-3.8.1-macosx10.9.pkg
-        echo "Install Python"
-        installer -store -pkg ${MASDCHOME}/pkgs/python-3.8.1-macosx10.9.pkg -target /
-    elif [ "${OSNAME}" == "Linux" ]; then
-        echo "Install Python"
-        apt-get update
-        apt-get -y install python3-pip
-        apt-get clean
-    fi
-fi
-
-# Install pip3
-pip3 --help > /dev/null 2>&1
-retval=$?
-if [ $retval -eq 0 ]; then
-    echo "pip3 is already installed"
-else
-    if [ "${OSNAME}" == "MacOS" ]; then
-        echo "Download get-pip.py"
-        curl https://bootstrap.pypa.io/get-pip.py -L -o get-pip.py
-        echo "Install pip"
-        python3 get-pip.py
-    elif [ "${OSNAME}" == "Linux" ]; then
-        echo "Install Python"
-        sudo apt-get update
-        sudo apt-get -y install python3-pip
-        sudo apt-get clean
-    fi
-fi
-
-# Install required python packages
-pip3 freeze | grep pandas > /dev/null 2>&1
-retval=$?
-if [ $retval -eq 0 ]; then
-    echo "Required python modules are already installed"
-else
-    echo "Install required python modules"
-    pip3 install --upgrade -r ${MASDCHOME}/bin/requirements.txt
-fi
 

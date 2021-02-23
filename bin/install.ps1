@@ -44,15 +44,8 @@ Write-Host "Downloading JRE"
 $path = ".\jre.zip"
 if(!(Test-Path $path))
 {
-    Invoke-WebRequest -Uri "https://dataingest.s3.us-south.cloud-object-storage.appdomain.cloud/jre.zip" -OutFile ".\jre.zip"
-}
-
-# Download embedded python
-Write-Host "Downloading Embedded Python with required packages"
-$path = ".\python.zip"
-if(!(Test-Path $path))
-{
-    Invoke-WebRequest -Uri "https://dataingest.s3.us-south.cloud-object-storage.appdomain.cloud/python-3.7.5.zip" -OutFile ".\python.zip"
+    # Invoke-WebRequest -Uri "https://dataingest.s3.us-south.cloud-object-storage.appdomain.cloud/jre.zip" -OutFile ".\jre.zip"
+    Invoke-WebRequest -Uri "https://download.java.net/java/GA/jdk11/9/GPL/openjdk-11.0.2_windows-x64_bin.zip" -OutFile ".\jre.zip"
 }
 
 # Expand Connector code
@@ -77,14 +70,6 @@ if(!(Test-Path $path))
     Expand-Archive -Path jre.zip -DestinationPath "$InstallPath"
 }
 
-# Expand python
-Write-Host "Expanding python.zip in $InstallPath"
-$path = "$InstallPath\python-3.7.5"
-if(!(Test-Path $path))
-{
-    Expand-Archive -Path python.zip -DestinationPath "$InstallPath"
-}
-
 # Create Data dir
 Write-Host "Creating Data directory $DataPath"
 if(!(Test-Path $DataPath))
@@ -94,6 +79,7 @@ if(!(Test-Path $DataPath))
     New-Item -Path "$DataPath\volume\config" -ItemType Directory
     New-Item -Path "$DataPath\volume\data" -ItemType Directory
 }
+
 
 # Set Environment variables
 [System.Environment]::SetEnvironmentVariable('IBM_DATAINGEST_INSTALL_DIR', $InstallPath,[System.EnvironmentVariableTarget]::Machine)
@@ -114,8 +100,8 @@ $xmlentity = @"
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
     <Author>IBM</Author>
-    <Description>Uploads entity data from SCADA historian to IBM MAS for Monitoring</Description>
-    <URI>\IBM\Maximo Application Suite\Entity Data Upload Task</URI>
+    <Description>Uploads device data from SCADA historian to IBM MAS for Monitoring</Description>
+    <URI>\IBM\Maximo Application Suite\IBMMASDeviceDataUpload</URI>
   </RegistrationInfo>
   <Triggers>
     <RegistrationTrigger>
@@ -159,16 +145,16 @@ $xmlentity = @"
   </Settings>
   <Actions Context="Author">
     <Exec>
-      <Command>cmd</Command>
-      <Arguments>/K "C:\IBM\masdc\bin\connector.bat" entity</Arguments>
-      <WorkingDirectory>C:\IBM\masdc\volume\logs</WorkingDirectory>
+      <Command>c:\ibm\masdc\jre\bin\java.exe</Command>
+      <Arguments>-classpath "c:\ibm\masdc\jre\lib\*;c:\ibm\masdc\lib\*" com.ibm.wiotp.masdc.Connector device</Arguments>
+      <WorkingDirectory>C:\IBM\masdc\volume\data</WorkingDirectory>
     </Exec>
   </Actions>
 </Task>
 "@
 
 # Register entity upload task
-$taskName = "IBMMASEntityDataUpload"
+$taskName = "IBMMASDeviceDataUpload"
 $taskPath = "\IBM\Maximo Application Suite"
 Register-ScheduledTask -Xml $xmlentity -TaskName $taskName -TaskPath $taskPath
 
@@ -180,7 +166,7 @@ $xmlalarm = @"
   <RegistrationInfo>
     <Author>IBM</Author>
     <Description>Uploads alarm data from SCADA historian to IBM MAS for Monitoring</Description>
-    <URI>\IBM\Maximo Application Suite\Alarm Data Upload Task</URI>
+    <URI>\IBM\Maximo Application Suite\IBMMASAlarmDataUpload</URI>
   </RegistrationInfo>
   <Triggers>
     <RegistrationTrigger>
@@ -224,9 +210,9 @@ $xmlalarm = @"
   </Settings>
   <Actions Context="Author">
     <Exec>
-      <Command>cmd</Command>
-      <Arguments>/K "C:\IBM\masdc\bin\connector.bat" alarm</Arguments>
-      <WorkingDirectory>C:\IBM\masdc\volume\logs</WorkingDirectory>
+      <Command>c:\ibm\masdc\jre\bin\java.exe</Command>
+      <Arguments>-classpath "c:\ibm\masdc\jre\lib\*;c:\ibm\masdc\lib\*" com.ibm.wiotp.masdc.Connector alarm</Arguments>
+      <WorkingDirectory>C:\IBM\masdc\volume\data</WorkingDirectory>
     </Exec>
   </Actions>
 </Task>
