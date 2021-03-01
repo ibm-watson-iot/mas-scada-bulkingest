@@ -17,27 +17,43 @@ public class EntityType {
 
     private static final Logger logger = Logger.getLogger("mas-ignition-connector");
 
-    private String type;
-    private String geo;
-    private String tenantId;
-    private String entityTypeName;
-    private String schemaName;
-    private String metricTableName;
-    private String dimensionTableName;
-    private String baseUrl;
-    private JSONArray entityObj = null;
+    private static Config config;
+    private static String type;
+    private static String geo;
+    private static String tenantId;
+    private static String entityTypeName;
+    private static String schemaName;
+    private static String metricTableName;
+    private static String dimensionTableName;
+    private static String baseUrl;
+    private static JSONObject wiotp;
+    private static JSONObject datalake;
+    private static JSONArray entityObj = null;
+    private static RestClient restClient;
+    private static String entityAPI;
 
-    public EntityType(String geo, String tenantId, String type, String entityTypeName, String schemaName) {
+    public EntityType(Config config) throws Exception {
+        if (config == null) {
+            throw new NullPointerException("config/tagpaths parameter cannot be null");
+        }
+
+        this.type = config.getConnectorTypeStr();
+        this.wiotp = config.getWiotpConfig();
+        this.datalake = config.getMonitorConfig();
+
+        this.geo = wiotp.getString("geo"); 
         this.baseUrl = "https://api-" + geo + ".connectedproducts.internetofthings.ibmcloud.com/api";
-        this.tenantId = tenantId;
-        this.type = type;    // "device" or "alarm"
-        this.entityTypeName = entityTypeName;
-        this.schemaName = schemaName;
+        this.tenantId = wiotp.getString("tenantId");
+        this.entityTypeName = config.getEntityType();
+        this.schemaName = datalake.getString("schema");
         this.metricTableName = "IOT_" + entityTypeName;
         this.dimensionTableName = metricTableName + "_CTG";
+
+        this.entityAPI = "/meta/v1/" + this.tenantId + "/entityType";
+        this.restClient = new RestClient(baseUrl, 2, wiotp.getString("key"), wiotp.getString("token"), config.getPostResponseFile());
     }
 
-    public void build() {
+    public void register() throws Exception {
 
         if (entityObj == null ) {
             entityObj = new JSONArray();
@@ -87,23 +103,11 @@ public class EntityType {
             
             // Add dataItemDtoArray in entityTypeObj
             entityTypeObj.put("dataItemDto", dataItemDtoArray);
-
             entityObj.put(entityTypeObj);
+
+            restClient.post(entityAPI, entityObj.toString());
+            logger.info(String.format("EntityType POST Status Code: %d", restClient.getResponseCode()));
         }
-
-    }
-
-    public String toString() {
-        return entityObj.toString();
-    }
-
-    public String getBaseUrl() {
-        return this.baseUrl;
-    }
-
-    public String getMethod() {
-        String entityAPI = "/meta/v1/" + this.tenantId + "/entityType";
-        return entityAPI;
     }
 
     public String getEndpoint() {

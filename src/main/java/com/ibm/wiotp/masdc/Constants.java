@@ -24,7 +24,18 @@ public class Constants {
     public static final int AUTH_BASIC = 1;
     public static final int AUTH_HEADER = 2;
 
-    public static final int HB_TAGS = 3;
+    public static final int DB_SOURCE_TYPE_MYSQL = 1;
+    public static final int DB_SOURCE_TYPE_MSSQL = 2;
+    public static final int DB_DEST_TYPE_DB2 = 1;
+    public static final int DB_DEST_TYPE_POSTGRE = 2;
+
+    public static final int CONNECTOR_STATS_TAGS = 6;
+
+    public static final int EXTRACT_STATUS_INIT = 0;
+    public static final int EXTRACT_STATUS_TABLE_WITH_DATA = 1;
+    public static final int EXTRACT_STATUS_TABLE_NO_DATA = 2;
+    public static final int EXTRACT_STATUS_NO_TABLE = 3;
+
 }
 
 

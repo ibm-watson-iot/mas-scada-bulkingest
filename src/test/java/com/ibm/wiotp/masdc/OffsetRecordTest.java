@@ -100,7 +100,7 @@ public class OffsetRecordTest {
         int year = offRec.getYear();
         int month = offRec.getMonth();
 
-        System.out.println(String.format("StartingRecord: %d %d   %d %d", tms, startTimeSecs, tme, endTimeSecs));
+        System.out.println(String.format("StartingRecord: cts=%d st=%d cte=%d et=%d", tms, startTimeSecs, tme, endTimeSecs));
 
         assertEquals(tms, startTimeSecs);
         assertEquals(tme, endTimeSecs);
@@ -108,7 +108,7 @@ public class OffsetRecordTest {
         assertEquals(5, month);
 
         for (int i=6; i<18; i++) {
-            int nowait = offRec.updateOffsetFile(startTimeSecs, endTimeSecs, year, month, offRec.STATUS_NO_TABLE);
+            int nowait = offRec.updateOffsetFile(startTimeSecs, endTimeSecs, year, month, Constants.EXTRACT_STATUS_NO_TABLE);
             String newDateStr;
             int newYear = 2020;
             int j = i;
@@ -192,7 +192,7 @@ public class OffsetRecordTest {
         long cycleStartTimeMillis;
         for (int i=0; i<30; i++) {
             cycleStartTimeMillis = System.currentTimeMillis();
-            int waitFlag = offRec.updateOffsetFile(startTimeSecs, endTimeSecs, year, month, offRec.STATUS_TABLE_NO_DATA);
+            int waitFlag = offRec.updateOffsetFile(startTimeSecs, endTimeSecs, year, month, Constants.EXTRACT_STATUS_TABLE_NO_DATA);
             startTimeSecs = offRec.getStartTimeSecs();
             endTimeSecs = offRec.getEndTimeSecs();
             year = offRec.getYear();
@@ -208,7 +208,7 @@ public class OffsetRecordTest {
 
         for (int i=0; i<3; i++) {
             cycleStartTimeMillis = System.currentTimeMillis();
-            int waitFlag = offRec.updateOffsetFile(startTimeSecs, endTimeSecs, year, month, offRec.STATUS_TABLE_NO_DATA);
+            int waitFlag = offRec.updateOffsetFile(startTimeSecs, endTimeSecs, year, month, Constants.EXTRACT_STATUS_TABLE_NO_DATA);
             startTimeSecs = offRec.getStartTimeSecs();
             endTimeSecs = offRec.getEndTimeSecs();
             year = offRec.getYear();
@@ -250,7 +250,7 @@ public class OffsetRecordTest {
         long cycleStartTimeMillis;
         for (int i=0; i<30; i++) {
             cycleStartTimeMillis = System.currentTimeMillis();
-            int waitFlag = offRec.updateOffsetFile(startTimeSecs, endTimeSecs, year, month, offRec.STATUS_TABLE_WITH_DATA);
+            int waitFlag = offRec.updateOffsetFile(startTimeSecs, endTimeSecs, year, month, Constants.EXTRACT_STATUS_TABLE_WITH_DATA);
             startTimeSecs = offRec.getStartTimeSecs();
             endTimeSecs = offRec.getEndTimeSecs();
             year = offRec.getYear();
@@ -266,7 +266,7 @@ public class OffsetRecordTest {
 
         for (int i=0; i<1; i++) {
             cycleStartTimeMillis = System.currentTimeMillis();
-            int waitFlag = offRec.updateOffsetFile(startTimeSecs, endTimeSecs, year, month, offRec.STATUS_TABLE_WITH_DATA);
+            int waitFlag = offRec.updateOffsetFile(startTimeSecs, endTimeSecs, year, month, Constants.EXTRACT_STATUS_TABLE_WITH_DATA);
             startTimeSecs = offRec.getStartTimeSecs();
             endTimeSecs = offRec.getEndTimeSecs();
             year = offRec.getYear();

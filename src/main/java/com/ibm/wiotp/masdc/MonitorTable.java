@@ -17,6 +17,8 @@ public class MonitorTable {
 
     private static final Logger logger = Logger.getLogger("mas-ignition-connector");
 
+    private Config config;
+    private JSONObject datalake;
     private String type;
     private String name;
     private String host;
@@ -28,9 +30,16 @@ public class MonitorTable {
     private String ddlQuerySql;
     private String indexQuerySql;
 
-    public MonitorTable(String type, String name, JSONObject datalake) {
-        this.type = type;
-        this.name = name;
+    public MonitorTable(Config config) throws Exception {
+        if (config == null) {
+            throw new NullPointerException("config/tagpaths parameter cannot be null");
+        }
+
+        this.config = config;
+
+        this.type = config.getConnectorTypeStr();
+        this.name = config.getEntityType();
+        this.datalake = config.getMonitorConfig();
         this.host = datalake.getString("host");
         this.port = datalake.getString("port");
         this.user = datalake.getString("user");
@@ -39,7 +48,7 @@ public class MonitorTable {
         this.dbUrl = "jdbc:db2://" + host + ":" + port + "/BLUDB:sslConnection=true;";
     }
 
-    public void build() {
+    public void create() {
         if (this.ddlQuerySql != null) return;
         if (type.equals("device")) {
             // create ddl for device type
@@ -90,19 +99,9 @@ public class MonitorTable {
             sb.append(this.schema).append(".").append("IOT_").append(name).append(" ");
             sb.append("(DEVICEID, RCV_TIMESTAMP_UTC)"); 
             indexQuerySql = sb.toString();
-
         }
-    }
 
-    public String getDDLQuerySql() {
-        return ddlQuerySql;
-    }
-
-    public String getIndexQuerySql() {
-        return indexQuerySql;
-    }
-
-    public void create() {
+        // create table 
         Connection con;
         Statement stmt;
 
@@ -125,6 +124,14 @@ public class MonitorTable {
         catch (Exception ex) {
             logger.log(Level.INFO, ex.getMessage(), ex);
         }
+    }
+
+    public String getDDLQuerySql() {
+        return ddlQuerySql;
+    }
+
+    public String getIndexQuerySql() {
+        return indexQuerySql;
     }
 
     public void indexTable() {

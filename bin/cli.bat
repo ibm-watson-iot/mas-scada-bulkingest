@@ -17,5 +17,5 @@ set DI_LIB=%DI_HOME%\lib
 
 set CP=%DI_HOME%\jre\lib\*;%DI_HOME%\lib\*
 
-%DI_HOME%\jre\bin\java -classpath "%CP%" com.ibm.wiotp.masdc.Connector "%1"
+%DI_HOME%\jre\bin\java -classpath "%CP%" com.ibm.wiotp.masdc.CLIClient "%1" "%2" "%3"
 

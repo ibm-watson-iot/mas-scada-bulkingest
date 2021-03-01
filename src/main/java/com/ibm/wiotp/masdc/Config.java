@@ -28,48 +28,54 @@ public class Config {
 
     private static final Logger logger = Logger.getLogger("mas-ignition-connector");
 
-    private String installDir = "";
-    private String dataDir = "";
-    private int runMode = Constants.PRODUCTION;
-    private int connectorType = Constants.CONNECTOR_DEVICE;
-    private JSONObject connConfig;
-    private String clientSite;
-    private String deviceType;
-    private String alarmType;
-    private String startDate;
-    private JSONObject wiotp;
-    private JSONObject ignitionDB;
-    private JSONObject monitorDB;
+    private static String installDir = "";
+    private static String dataDir = "";
+    private static int runMode = Constants.PRODUCTION;
+    private static int connectorType = Constants.CONNECTOR_DEVICE;
+    private static String connectorTypeStr;
+    private static JSONObject connConfig;
+    private static String clientSite;
+    private static String deviceType;
+    private static String alarmType;
+    private static String startDate;
+    private static JSONObject wiotp;
+    private static JSONObject ignitionDB;
+    private static JSONObject monitorDB;
+    private static int sourceDbType;
+    private static String sourceDbUrl;
+    private static String sourceDbUser;
+    private static String sourceDbPass;
+    private static int destDbType;
+    private static String destDbUrl;
+    private static String destDbUser;
+    private static String destDbPass;
+    private static String entityType;
+    private static String pythonPath;
+    private static String insertSQL = "";
+    private static String postResponseFile;
+    private static String logFile;
+    private static String csvFile;
+    private static String updateFile;
+    private static String enableWebUIFile;
+    private static TimeZone localTZ = TimeZone.getDefault();
+    private static long fetchInterval = 30L;
+    private static long fetchIntervalHistorical = 14400L;
+    private static int batchInsertSize = 10000;
+    private static int updateFlag = 0;
+    private static int httpPort;
+    private static int cliPort;
 
-    private int sourceDbType;
-    private String sourceDbUrl;
-    private String sourceDbUser;
-    private String sourceDbPass;
-
-    private int destDbType;
-    private String destDbUrl;
-    private String destDbUser;
-    private String destDbPass;
-
-    private String entityType;
-    private String pythonPath;
-    private String insertSQL = "";
-
-    private String postResponseFile;
-    private String logFile;
-    private TimeZone localTZ = TimeZone.getDefault();
-    private long fetchInterval = 30L;
-    private long fetchIntervalHistorical = 14400L;
-
+ 
     public Config(JSONObject connConfig) {
         this.connConfig = connConfig;
     }
 
-    public Config(String installDir, String dataDir, String connectorType) throws Exception {
+    public Config(String installDir, String dataDir, String connectorTypeStr) throws Exception {
         this.installDir = installDir;
         this.dataDir = dataDir;
+        this.connectorTypeStr = connectorTypeStr;
         this.connectorType = Constants.CONNECTOR_DEVICE;
-        if (connectorType.equals("alarm")) {
+        if (connectorTypeStr.equals("alarm")) {
             this.connectorType = Constants.CONNECTOR_ALARM;
         }
         String connectionConfigFile = dataDir + "/volume/config/connection.json";
@@ -99,6 +105,26 @@ public class Config {
         fetchInterval = connConfig.optLong("fetchInterval", 30L);
         fetchIntervalHistorical = connConfig.optLong("fetchIntervalHistorical", 14400L);
 
+        if (this.connectorType == Constants.CONNECTOR_DEVICE) {
+            fetchInterval = setLongValue("deviceFetchInterval", fetchInterval);
+            fetchIntervalHistorical = setLongValue("deviceFetchIntervalHistorical", fetchIntervalHistorical);
+            startDate = setStringValue("deviceStartDate", startDate);
+        } else {
+            fetchInterval = setLongValue("alarmFetchInterval", fetchInterval);
+            fetchIntervalHistorical = setLongValue("alarmFetchIntervalHistorical", fetchIntervalHistorical);
+            startDate = setStringValue("alarmStartDate", startDate);
+        }
+
+        batchInsertSize  = connConfig.optInt("batchInsertSize", 10000);
+
+        if (this.connectorType == Constants.CONNECTOR_DEVICE) {
+            httpPort  = connConfig.optInt("httpPort", 5080);
+            cliPort = connConfig.optInt("cliPort", 4550);
+        } else {
+            httpPort  = connConfig.optInt("httpPort", 5081);
+            cliPort = connConfig.optInt("cliPort", 4551);
+        }
+
         wiotp = connConfig.getJSONObject("wiotp");
         ignitionDB = connConfig.getJSONObject("ignition");
         monitorDB = connConfig.getJSONObject("monitor");
@@ -126,6 +152,10 @@ public class Config {
         sourceDbType = setIgnitionDbParams(ignitionDB);
         destDbType = setMonitorDbParams(monitorDB);
 
+        csvFile = dataDir + "/volume/data/" + entityType + ".csv";
+        updateFile = dataDir + "/volume/config/.upgrade";
+        enableWebUIFile = dataDir + "/volume/config/.enableWebUI";
+
         String osname = System.getProperty("os.name");
         if ( osname.startsWith("Windows")) {
             if (installDir.equals("")) {
@@ -142,6 +172,26 @@ public class Config {
         return logFile;
     }
 
+    public String getCSVFile() {
+        return csvFile;
+    }
+
+    public String getUpdateFile() {
+        return updateFile;
+    }
+
+    public String getEnableWebUIFile() {
+        return enableWebUIFile;
+    }
+
+    public void setUpdateFlag(int flag) {
+        updateFlag = flag;
+    }
+
+    public int getUpdateFlag() {
+        return updateFlag;
+    }
+
     public int getRunMode() {
         return runMode;
     }
@@ -154,6 +204,18 @@ public class Config {
         return fetchIntervalHistorical;
     }
 
+    public int getBatchInsertSize() {
+        return batchInsertSize;
+    }
+
+    public int getHttpPort() {
+        return httpPort;
+    }
+
+    public int getCLIPort() {
+        return cliPort;
+    }
+
     public String getDataDir() {
         return dataDir;
     }
@@ -164,6 +226,10 @@ public class Config {
 
     public int getConnectorType() {
         return connectorType;
+    }
+
+    public String getConnectorTypeStr() {
+        return connectorTypeStr;
     }
 
     public String getClientSite() {
@@ -217,7 +283,7 @@ public class Config {
     public String getIgnitionDBSql(long startMilli, long endMilli, int year, int month) {
         String sqlStr = "";
         try {
-            if (connectorType == 1) {
+            if (connectorType == Constants.CONNECTOR_DEVICE) {
                 String sqlTemplateFile = dataDir + "/volume/config/deviceSqlTemplate.sql";
                 String templateSql = new String(Files.readAllBytes(Paths.get(sqlTemplateFile)));
                 sqlStr = String.format(templateSql, year, month, startMilli, endMilli);
@@ -410,6 +476,27 @@ public class Config {
         return cal;
     }
 
+    private long setLongValue(String propName, long defaultValue) {
+        long value = 0;
+        try {
+            value = connConfig.getLong(propName);
+        } catch (Exception e) {}
+        if (value == 0) {
+            return defaultValue;
+        }
+        return value;
+    }
+
+    private String setStringValue(String propName, String defaultValue) {
+        String value = null;
+        try {
+            value = connConfig.getString(propName);
+        } catch (Exception e) {}
+        if (value == null) {
+            return defaultValue;
+        }
+        return value;
+    }
 
 }
 

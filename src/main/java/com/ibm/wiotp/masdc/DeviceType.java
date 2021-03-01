@@ -19,27 +19,32 @@ public class DeviceType {
 
     private static final Logger logger = Logger.getLogger("mas-ignition-connector");
 
-    private String client;
-    private String type;
-    private String name;
-    private JSONObject wiotp;
-    private String baseUrl;
-    private String deviceTypeAPI;
-    private RestClient restClient;
-    private Config config;
+    private static String client;
+    private static String type;
+    private static String name;
+    private static JSONObject wiotp;
+    private static String baseUrl;
+    private static String deviceTypeAPI;
+    private static RestClient restClient;
+    private static Config config;
 
-    public DeviceType(Config config, String client, String type, String name, JSONObject wiotp) {
+    public DeviceType(Config config) throws Exception {
+        if (config == null) {
+            throw new NullPointerException("config/tagpaths parameter cannot be null");
+        }
+
         this.config = config;
-        this.client = client;
-        this.type = type;
-        this.name = name;
-        this.wiotp = wiotp;
+
+        this.client = config.getClientSite();
+        this.type = config.getConnectorTypeStr();
+        this.name = config.getEntityType();
+        this.wiotp = config.getWiotpConfig();
         this.baseUrl = "https://" + wiotp.getString("orgId") + ".internetofthings.ibmcloud.com/";
         this.deviceTypeAPI = "api/v0002/device/types";
         this.restClient = new RestClient(baseUrl, 1, wiotp.getString("key"), wiotp.getString("token"), config.getPostResponseFile());
     }
 
-    public void apply() {
+    public void register() {
         int batchCount = 1;
         JSONObject deviceObj = createDeviceTypeItem(name);
         try {

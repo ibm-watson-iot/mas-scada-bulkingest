@@ -30,7 +30,6 @@ public class DateUtil {
     private int  year;
     private int  day;
 
-
     public DateUtil() {
     }
 

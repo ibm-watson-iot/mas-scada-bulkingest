@@ -31,17 +31,11 @@ public class OffsetRecord {
 
     private static final Logger logger = Logger.getLogger("mas-ignition-connector");
 
-    public static final int STATUS_INIT = 0;
-    public static final int STATUS_TABLE_WITH_DATA = 1;
-    public static final int STATUS_TABLE_NO_DATA = 2;
-    public static final int STATUS_NO_TABLE = 3;
-    public static long offsetInterval = 30L;
-    public static long offsetIntervalHistorical = 1800L;
-
+    private static long offsetInterval = 30L;
+    private static long offsetIntervalHistorical = 1800L;
     private static int connectorType = 1; // 1-device, 2-alarm
     private static String startDate;
     private static String offsetFile;
-
     private static TimeZone localTZ = TimeZone.getDefault();
     private static Calendar cal = Calendar.getInstance();
     private static long startTimeSecs;
@@ -51,6 +45,7 @@ public class OffsetRecord {
     private static int status;
     private static AtomicLong processedCount = new AtomicLong(0);
     private static AtomicLong uploadedCount = new AtomicLong(0);
+    private static AtomicLong tagCount = new AtomicLong(0);
     private static AtomicLong rate = new AtomicLong(0);
     private static int currTimeWindowCycle = 0;
 
@@ -110,6 +105,14 @@ public class OffsetRecord {
         return uploadedCount.get();
     }
         
+    public long setTagCount(long count) {
+        return tagCount.addAndGet(count);
+    }
+
+    public long getTagCount() {
+        return tagCount.get();
+    }
+        
     public void setRate(long count) {
         if (count == 0) return;
         rate.set(count);
@@ -155,7 +158,7 @@ public class OffsetRecord {
         int curYear = cal.get(Calendar.YEAR);
         int curMonth = cal.get(Calendar.MONTH) + 1; // Calendar base MONTH is 0
 
-        if (status == STATUS_NO_TABLE) {
+        if (status == Constants.EXTRACT_STATUS_NO_TABLE) {
 
             int nextYear = lastYear;
             int nextMonth = lastMonth + 1;
@@ -220,7 +223,7 @@ public class OffsetRecord {
         }
 
         if (createFile == 1 || ofrec == null) {
-            updateOffsetByDate(startDate, STATUS_INIT);
+            updateOffsetByDate(startDate, Constants.EXTRACT_STATUS_INIT);
         }
     }
 
