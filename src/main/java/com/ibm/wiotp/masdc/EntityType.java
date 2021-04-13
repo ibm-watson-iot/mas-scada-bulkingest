@@ -9,6 +9,8 @@
 
 package com.ibm.wiotp.masdc;
 
+import java.util.List;
+import java.util.ListIterator;
 import java.util.logging.*;
 import org.json.JSONObject;
 import org.json.JSONArray;
@@ -21,10 +23,8 @@ public class EntityType {
     private static String type;
     private static String geo;
     private static String tenantId;
-    private static String entityTypeName;
+    private static List<String> entityTypes;
     private static String schemaName;
-    private static String metricTableName;
-    private static String dimensionTableName;
     private static String baseUrl;
     private static JSONObject wiotp;
     private static JSONObject datalake;
@@ -34,9 +34,10 @@ public class EntityType {
 
     public EntityType(Config config) throws Exception {
         if (config == null) {
-            throw new NullPointerException("config/tagpaths parameter cannot be null");
+            throw new NullPointerException("config parameter cannot be null");
         }
 
+        this.config = config;
         this.type = config.getConnectorTypeStr();
         this.wiotp = config.getWiotpConfig();
         this.datalake = config.getMonitorConfig();
@@ -44,10 +45,8 @@ public class EntityType {
         this.geo = wiotp.getString("geo"); 
         this.baseUrl = "https://api-" + geo + ".connectedproducts.internetofthings.ibmcloud.com/api";
         this.tenantId = wiotp.getString("tenantId");
-        this.entityTypeName = config.getEntityType();
+        this.entityTypes = config.getTypes();
         this.schemaName = datalake.getString("schema");
-        this.metricTableName = "IOT_" + entityTypeName;
-        this.dimensionTableName = metricTableName + "_CTG";
 
         this.entityAPI = "/meta/v1/" + this.tenantId + "/entityType";
         this.restClient = new RestClient(baseUrl, 2, wiotp.getString("key"), wiotp.getString("token"), config.getPostResponseFile());
@@ -55,8 +54,19 @@ public class EntityType {
 
     public void register() throws Exception {
 
-        if (entityObj == null ) {
-            entityObj = new JSONArray();
+        MonitorTable monTable = new MonitorTable(config);
+
+        logger.info(String.format("Create entity types: %d", this.entityTypes.size()));
+
+        ListIterator<String> itr = null;
+        itr = entityTypes.listIterator();
+        while (itr.hasNext()) {
+            String entityTypeName = itr.next();
+            logger.info("Create entity: " + entityTypeName);
+            String metricTableName = "IOT_" + entityTypeName;
+            String dimensionTableName = metricTableName + "_CTG";
+
+            JSONArray entityObj = new JSONArray();
 
             JSONObject entityTypeObj = new JSONObject();
             entityTypeObj.put("name", entityTypeName);
@@ -107,18 +117,75 @@ public class EntityType {
 
             restClient.post(entityAPI, entityObj.toString());
             logger.info(String.format("EntityType POST Status Code: %d", restClient.getResponseCode()));
+
+            // create monitor table
+            // MonitorTable monTable = new MonitorTable(config);
+            String ddlStr;
+            if (type.equals("device")) {
+                ddlStr = monTable.getDeviceDDL(entityTypeName);
+            } else {
+                ddlStr = monTable.getAlarmDDL(entityTypeName);
+            }
+            monTable.createTable(metricTableName, ddlStr);
         }
+
+        // create stats entity
+        registerStatsEntity(monTable);
+
     }
 
-    public String getEndpoint() {
-        String entityTypeEndpoint = baseUrl + "/meta/v1/" + this.tenantId + "/entityType";
-        return entityTypeEndpoint;
+    private void registerStatsEntity(MonitorTable monTable) throws Exception {
+
+        String entityTypeName = config.getStatsDeviceType();
+        logger.info("Create stats entity: " + entityTypeName);
+        String metricTableName = "IOT_" + entityTypeName;
+        String dimensionTableName = metricTableName + "_CTG";
+
+        JSONArray entityObj = new JSONArray();
+
+        JSONObject entityTypeObj = new JSONObject();
+        entityTypeObj.put("name", entityTypeName);
+        entityTypeObj.put("description", entityTypeName);
+        entityTypeObj.put("metricTableName", metricTableName);
+        entityTypeObj.put("dimensionTableName", dimensionTableName);
+        entityTypeObj.put("metricTimestampColumn", "RCV_TIMESTAMP_UTC");
+        entityTypeObj.put("schemaName", schemaName);
+        
+        JSONArray dataItemDtoArray = new JSONArray();
+        
+        // Add metric objects in dataItemDtoArray
+        dataItemDtoArray.put(createDataDtoObject("RCV_TIMESTAMP_UTC", "METRIC", "RCV_TIMESTAMP_UTC", "TIMESTAMP"));
+        dataItemDtoArray.put(createDataDtoObject("entity_id", "METRIC", "DEVICEID", "LITERAL"));
+        dataItemDtoArray.put(createDataDtoObject("EXTRACTED", "METRIC", "EXTRACTED", "NUMBER"));
+        dataItemDtoArray.put(createDataDtoObject("UPLOADED", "METRIC", "UPLOADED", "NUMBER"));
+        dataItemDtoArray.put(createDataDtoObject("RATE", "METRIC", "RATE", "NUMBER"));
+        dataItemDtoArray.put(createDataDtoObject("ENTITYTYPECOUNT", "METRIC", "ENTITYTYPECOUNT", "NUMBER"));
+        dataItemDtoArray.put(createDataDtoObject("ENTITYCOUNT", "METRIC", "ENTITYCOUNT", "NUMBER"));
+        dataItemDtoArray.put(createDataDtoObject("EXTSTARTTIME", "METRIC", "EXTSTARTTIME", "LITERAL"));
+        dataItemDtoArray.put(createDataDtoObject("EXTENDTIME", "METRIC", "EXTENDTIME", "LITERAL"));
+
+        // Add Dimension objects in dataItemDtoArray
+        dataItemDtoArray.put(createDataDtoObject("CLIENT",  "DIMENSION", "CLIENT", "LITERAL"));
+ 
+        // Add dataItemDtoArray in entityTypeObj
+        entityTypeObj.put("dataItemDto", dataItemDtoArray);
+        entityObj.put(entityTypeObj);
+
+        restClient.post(entityAPI, entityObj.toString());
+        logger.info(String.format("EntityType POST Status Code: %d", restClient.getResponseCode()));
+
+        // create monitor table
+        String ddlStr = monTable.getConnectorStatsDDL(entityTypeName);
+        monTable.createTable(metricTableName, ddlStr);
+        // add dimension for the stats
+        Dimension dim = new Dimension(config, null);
+        dim.addStatsDimensions();
     }
 
-    private static JSONObject createDataDtoObject(String name, String type, String colName, String colType) {
+    private static JSONObject createDataDtoObject(String dtoName, String dtoType, String colName, String colType) {
         JSONObject dtoObj = new JSONObject();
-        dtoObj.put("name", name);
-        dtoObj.put("type", type);
+        dtoObj.put("name", dtoName);
+        dtoObj.put("type", dtoType);
         dtoObj.put("columnName", colName);
         dtoObj.put("columnType", colType);
         return dtoObj;

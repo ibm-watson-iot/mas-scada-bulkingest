@@ -46,6 +46,7 @@ import org.apache.commons.jcs3.access.CacheAccess;
 public class Connector {
 
     private static final Logger logger = Logger.getLogger("mas-ignition-connector");
+    private static final String MASDC_VERSION = "1.0.1";
 
     /**
      * @param cofiguredConnectorType    Device or Alarm connector.
@@ -57,6 +58,8 @@ public class Connector {
         Handler consoleHandler = null;
         String installDir = "";
         String dataDir = "";
+        int tagMapVersion = 1;
+        int testBreakMode = 0;
 
         try {
             // add shutdown hook
@@ -112,40 +115,56 @@ public class Connector {
             fh.setFormatter(formatter);
             logger.removeHandler(consoleHandler);
 
-            logger.info("MAS Data connector for Ignition SCADA historian.");
+            logger.info("");
+            logger.info("==== MAS Connector for Ignition SCADA Historian");
+            logger.info("Connector version: " + MASDC_VERSION);
             logger.info("Client Site: " + config.getClientSite());
             logger.info("Connector Type: " + configuredConnectorType);
-            logger.info("Monitor Table Name: IOT_" + config.getEntityType().toUpperCase());
             logger.info(String.format("Run mode: %d", config.getRunMode()));
 
             // Initialize required objects
             OffsetRecord offsetRecord = new OffsetRecord(config, false);
-            String cacheName = config.getEntityType() + ".tags";
-            CacheAccess<String, TagData> tagpaths = JCS.getInstance(cacheName);
+            String cacheNameOld = config.getEntityType() + ".tags";
+            String cacheNameNew = config.getClientSite() + "_" + configuredConnectorType + "_tags_v" + tagMapVersion;
+            String oldCacheFilePathData = dataDir + "/volume/data/tagcache/" + cacheNameOld + ".data";
+            String oldCacheFilePathKey = dataDir + "/volume/data/tagcache/" + cacheNameOld + ".key";
+            if ( checkFileExists(oldCacheFilePathData) == 1) {
+                UpdateTagData utd = new UpdateTagData(config, cacheNameOld, cacheNameNew);
+                utd.process();
+                // delete old cache file
+                File f = new File(oldCacheFilePathData);
+                f.delete();
+                f = new File(oldCacheFilePathKey);
+                f.delete();
+            }
+
+            CacheAccess<String, TagData> tagpaths = JCS.getInstance(cacheNameNew);
             Set<String> tagList = tagpaths.getCacheControl().getKeySet();
             long totalDevices = tagList.size();
             logger.info(String.format("Total tags in cache: %d", totalDevices));
-            offsetRecord.setTagCount(totalDevices);
+            offsetRecord.setEntityCount(totalDevices);
 
-            // Register device and entity type, and create monitoring tables
+            if (testBreakMode == 2) System.exit(0);
+
+            // Register device and entity types
             try {
                 DeviceType deviceType = new DeviceType(config);
                 deviceType.register();
                 EntityType entityType = new EntityType(config);
                 entityType.register();
-                MonitorTable monTable = new MonitorTable(config);
-                monTable.create();
-                // monTable.indexTable();
             } catch(Exception e) {
                 logger.info("Exception thrown during creation of deviceType, entityType, or monitoring tables");
                 logger.log(Level.INFO, e.getMessage(), e);
                 System.exit(1);
             }
 
+            if (testBreakMode == 1) System.exit(0);
+
             // start data processing threads
             try {
-                offsetRecord.setTagCount(tagpaths.getCacheControl().getSize());
-                ConnectorStats connStats = new ConnectorStats(config, offsetRecord, tagpaths);
+                offsetRecord.setEntityCount(tagpaths.getCacheControl().getSize());
+                offsetRecord.setEntityTypeCount(config.getTypes().size());
+                ConnectorStats connStats = new ConnectorStats(config, offsetRecord);
                 connStats.start();
                 Device device = new Device(config, tagpaths);
                 device.start();
@@ -176,6 +195,18 @@ public class Connector {
         System.exit(0);
     }
 
-}
+    private static int checkFileExists(String fileName) {
+        int found = 0;
+        try {
+            File f = new File(fileName);
+            if (f.exists()) {
+                found = 1;
+            }
+        } catch (Exception e) {
+            logger.info("File is not found. " + fileName + "  Msg: " + e.getMessage());
+        }
+        return found;
+    }
 
+}
 

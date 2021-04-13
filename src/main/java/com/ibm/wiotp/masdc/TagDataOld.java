@@ -11,23 +11,16 @@ package com.ibm.wiotp.masdc;
 
 import java.io.Serializable;
 
-public class TagData implements Serializable {
+public class TagDataOld implements Serializable {
 
     private String tagpath;
     private String deviceId;
-    private String deviceType;
-    private int deviceStatus = 0;    // 0-NotCreatedYet 1-Created
+    private int deviceStatus = 0; // 0-NotCreatedYet 1-Created
     private int dimensionStatus = 0; // 0-NotAddedYet 1-Added
 
-    public TagData(String tagpath, String deviceId) {
+    public TagDataOld(String tagpath, String deviceId) {
         this.tagpath = tagpath;
         this.deviceId = deviceId;
-    }
-
-    public TagData(String tagpath, String deviceId, String deviceType) {
-        this.tagpath = tagpath;
-        this.deviceId = deviceId;
-        this.deviceType = deviceType;
     }
 
     public String getTagpath() {
@@ -36,10 +29,6 @@ public class TagData implements Serializable {
 
     public String getDeviceId() {
         return this.deviceId;
-    }
-
-    public String getDeviceType() {
-        return this.deviceType;
     }
 
     public int getDeviceStatus() {
@@ -58,5 +47,4 @@ public class TagData implements Serializable {
         this.dimensionStatus = status;
     }
 }
-
 

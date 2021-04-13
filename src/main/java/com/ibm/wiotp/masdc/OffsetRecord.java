@@ -45,8 +45,9 @@ public class OffsetRecord {
     private static int status;
     private static AtomicLong processedCount = new AtomicLong(0);
     private static AtomicLong uploadedCount = new AtomicLong(0);
-    private static AtomicLong tagCount = new AtomicLong(0);
     private static AtomicLong rate = new AtomicLong(0);
+    private static AtomicLong entityCount = new AtomicLong(0);
+    private static AtomicLong entityTypeCount = new AtomicLong(0);
     private static int currTimeWindowCycle = 0;
 
     public OffsetRecord(Config config, boolean newOffsetFile) {
@@ -105,12 +106,20 @@ public class OffsetRecord {
         return uploadedCount.get();
     }
         
-    public long setTagCount(long count) {
-        return tagCount.addAndGet(count);
+    public long setEntityCount(long count) {
+        return entityCount.addAndGet(count);
     }
 
-    public long getTagCount() {
-        return tagCount.get();
+    public long getEntityCount() {
+        return entityCount.get();
+    }
+        
+    public long setEntityTypeCount(long count) {
+        return entityTypeCount.addAndGet(count);
+    }
+
+    public long getEntityTypeCount() {
+        return entityTypeCount.get();
     }
         
     public void setRate(long count) {

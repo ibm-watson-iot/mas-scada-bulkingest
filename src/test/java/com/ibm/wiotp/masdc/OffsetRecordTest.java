@@ -17,6 +17,7 @@ import java.util.Date;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import org.json.JSONObject;
+import org.json.JSONArray;
 
 public class OffsetRecordTest {
 
@@ -32,8 +33,6 @@ public class OffsetRecordTest {
     public void beforeAll() {
         JSONObject connConfig = new JSONObject();
         connConfig.put("clientSite", "testSite");
-        connConfig.put("deviceType", "TestDeviceType");
-        connConfig.put("alarmType", "TestAlarmType");
         connConfig.put("runMode", 0);
         connConfig.put("fetchInterval", 30L);
         connConfig.put("fetchIntervalHistorical", 14400L);
@@ -48,28 +47,50 @@ public class OffsetRecordTest {
         connConfig.put("wiotp", wiotp);
 
         JSONObject monitor = new JSONObject();
-        wiotp.put("dbtype", "db2");
-        wiotp.put("host", "db2w-xxxxxxx.us-south.db2w.cloud.ibm.com");
-        wiotp.put("port", "50001");
-        wiotp.put("schema", "BLUADMIN");
-        wiotp.put("user", "bluadmin");
-        wiotp.put("password", "xxxx4FXmd_eFE47gsI8Ttcx2Jxxxx");
+        monitor.put("dbtype", "db2");
+        monitor.put("host", "db2w-xxxxxxx.us-south.db2w.cloud.ibm.com");
+        monitor.put("port", "50001");
+        monitor.put("schema", "BLUADMIN");
+        monitor.put("user", "bluadmin");
+        monitor.put("password", "xxxx4FXmd_eFE47gsI8Ttcx2Jxxxx");
         connConfig.put("monitor", monitor);
 
         JSONObject ignition = new JSONObject();
-        wiotp.put("dbtype", "mysql");
-        wiotp.put("host", "127.0.0.1");
-        wiotp.put("port", "3306");
-        wiotp.put("schema", "scadadata");
-        wiotp.put("database", "scadadata");
-        wiotp.put("user", "root");
-        wiotp.put("password", "xxxxxxxx");
+        ignition.put("dbtype", "mysql");
+        ignition.put("host", "127.0.0.1");
+        ignition.put("port", "3306");
+        ignition.put("schema", "scadadata");
+        ignition.put("database", "scadadata");
+        ignition.put("user", "root");
+        ignition.put("password", "xxxxxxxx");
         connConfig.put("ignition", ignition); 
 
-        config = new Config(connConfig);
+        JSONObject deviceTypes = new JSONObject();
+        JSONArray patterns = new JSONArray();
+        JSONObject pattern = new JSONObject();
+        pattern.put("DefaultDeviceType", ".*");
+        patterns.put(pattern);
+        deviceTypes.put("patterns", patterns);
+        deviceTypes.put("groupBy", "patterns");
+        connConfig.put("deviceTypes", deviceTypes);
+
+        JSONObject alarmTypes = new JSONObject();
+        patterns = new JSONArray();
+        pattern = new JSONObject();
+        pattern.put("DefaultAlarmType", ".*");
+        patterns.put(pattern);
+        alarmTypes.put("patterns", patterns);
+        alarmTypes.put("groupBy", "patterns");
+        connConfig.put("alarmTypes", alarmTypes);
+
+        // System.out.println(connConfig.toString(4));
+
+        config = new Config(connConfig, "device");
         try {
             config.set();
-        } catch(Exception e) {}
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
 
         System.out.println("StartDate: " + config.getStartDate());
 

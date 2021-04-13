@@ -36,7 +36,7 @@ public class CLIServer {
         sb.append(String.format("\r\n"));
         sb.append(String.format("Client Site: %s \r\n", config.getClientSite()));
         sb.append(String.format("Entity Type: %s \r\n", config.getEntityType()));
-        sb.append(String.format("Total Registered Tags: %d \r\n", offsetRecord.getTagCount()));
+        sb.append(String.format("Total Registered Tags: %d \r\n", offsetRecord.getEntityCount()));
         sb.append(String.format("\r\n"));
         sb.append(String.format("Last processing cycle stats:\r\n"));
         sb.append(String.format("Extracted Records: %d \r\n", offsetRecord.getProcessedCount()));

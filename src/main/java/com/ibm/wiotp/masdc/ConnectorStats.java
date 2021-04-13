@@ -24,25 +24,22 @@ public class ConnectorStats {
 
     private static final Logger logger = Logger.getLogger("mas-ignition-connector");
 
-    private static CacheAccess<String, TagData> tagpaths;
-    private static OffsetRecord offsetRecord;
-    private static Config config;
-    private static DBConnector dbConnector;
+    private static OffsetRecord offsetRecord = null;
+    private static Config config = null;
+    private static DBHelper dbHelper = null;
+    private static DBConnector dbConnector = null;
     private static int connectorType;
     private static String entityType;
     private static String checkUpdateFile;
-    private static String[] masHBDevices = { "masSrcDB", "masDestDB", "masProcessing", "masTags", "masExtStart", "masExtEnd"};
-    private static String[] masHBStatNames = {"extracted", "uploaded", "ratePerSec", "total", "timeSec", "timeSec"};
-    private static int[] masHBTagIds = {-9001, -9002, -9003, -9004, -9005, -9006};
 
-    public ConnectorStats(Config config, OffsetRecord offsetRecord, CacheAccess<String, TagData> tagpaths) throws Exception {
-        if (config == null || offsetRecord == null || tagpaths == null) {
-            throw new NullPointerException("config/offsetRecord/tagpaths parameter cannot be null");
+    public ConnectorStats(Config config, OffsetRecord offsetRecord) throws Exception {
+        if (config == null || offsetRecord == null) {
+            throw new NullPointerException("config/offsetRecord parameter cannot be null");
         }
 
         this.config = config;
         this.offsetRecord = offsetRecord;
-        this.tagpaths = tagpaths;
+        this.dbHelper = new DBHelper(config);
 
         connectorType = config.getConnectorType();
         entityType = config.getEntityType();
@@ -50,80 +47,13 @@ public class ConnectorStats {
     }
 
     public void start() throws Exception {
-        for (int i=0; i < Constants.CONNECTOR_STATS_TAGS; i++) {
-            String masHbTag = masHBDevices[i] + "/" + masHBStatNames[i];
-            TagData td = new TagData(masHbTag, masHBDevices[i]);
-            try {
-                tagpaths.putSafe(masHbTag, td);
-                offsetRecord.setTagCount(1);
-            } catch(Exception e) {}
-        }
-
         try {
-            dbConnector = new DBConnector(config, offsetRecord, tagpaths);
+            dbConnector = new DBConnector(config, offsetRecord, null);
             startConnectorStatsThread();
         } catch(Exception e) {
             logger.log(Level.INFO, e.getMessage(), e);
             throw e;
         }
-    }
-
-    private static void sendEvent() {
-        long[] statValues = {offsetRecord.getProcessedCount(), offsetRecord.getUploadedCount(), offsetRecord.getRate(),
-            offsetRecord.getTagCount(), offsetRecord.getStartTimeSecs(), offsetRecord.getEndTimeSecs()};
-
-        // Add Connector status event - used as heart beat
-        String[] dbCols = config.getMonitorDBCols();
-        Map<String, List<Object>> statusMap = new HashMap<String, List<Object>>();
-        for (int i=0; i < dbCols.length; i++) {
-            statusMap.put(dbCols[i], new ArrayList<>());
-        }
-
-        // add stats
-        int tagid = 0;
-        int value = 1;
-        int intval = 0;
-        double dval = 0.0;
-        String strval = "null";
-        long statValue;
-        String statName;
-        for (int i=0; i < Constants.CONNECTOR_STATS_TAGS; i++) {
-            if (connectorType == Constants.CONNECTOR_DEVICE) {
-                statusMap.get("TAGID").add(masHBTagIds[i]);
-                statusMap.get("INTVALUE").add(statValues[i]);
-                statusMap.get("FLOATVALUE").add(dval);
-                statusMap.get("STRINGVALUE").add(strval);
-                statusMap.get("DATEVALUE").add(strval);
-                statusMap.get("EVT_NAME").add(masHBStatNames[i]);
-                statusMap.get("DEVICETYPE").add(entityType);
-                statusMap.get("DEVICEID").add(masHBDevices[i]);
-                statusMap.get("LOGICALINTERFACE_ID").add("null");
-                statusMap.get("EVENTTYPE").add("status");
-                statusMap.get("FORMAT").add("JSON");
-                Timestamp ts = new Timestamp(System.currentTimeMillis());
-                statusMap.get("RCV_TIMESTAMP_UTC").add(ts);
-                statusMap.get("UPDATED_UTC").add(ts);
-            } else {
-                statusMap.get("ALARMID").add(masHBTagIds[i]);
-                statusMap.get("EVENTID").add(strval);
-                statusMap.get("ACKBY").add(strval);
-                statusMap.get("NAME").add(strval);
-                statusMap.get("ETYPE").add(dval);
-                statusMap.get("DISPLAYPATH").add(masHBStatNames[i]);
-                statusMap.get("PRIORITY").add(dval);
-                statusMap.get("VALUE").add(statValues[i]);
-                statusMap.get("DEVICETYPE").add(entityType);
-                statusMap.get("DEVICEID").add(masHBDevices[i]);
-                statusMap.get("LOGICALINTERFACE_ID").add("null");
-                statusMap.get("EVENTTYPE").add("status");
-                statusMap.get("FORMAT").add("JSON");
-                Timestamp ts = new Timestamp(System.currentTimeMillis());
-                statusMap.get("RCV_TIMESTAMP_UTC").add(ts);
-                statusMap.get("UPDATED_UTC").add(ts);
-            }
-        }
-        dbConnector.batchInsert(statusMap, Constants.CONNECTOR_STATS_TAGS);
-        statusMap.clear();
     }
 
     private static void startConnectorStatsThread() {
@@ -139,7 +69,7 @@ public class ConnectorStats {
                     } else {                        
                         config.setUpdateFlag(0);
                     } 
-                    sendEvent();
+                    dbConnector.insertStats(offsetRecord);
                     try {
                         Thread.sleep(60000);
                     } catch (Exception e) {}

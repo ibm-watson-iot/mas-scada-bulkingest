@@ -17,6 +17,7 @@ import org.json.JSONObject;
 import org.json.JSONArray;
 import java.util.Set;
 import java.util.Iterator;
+import java.util.ListIterator;
 import java.util.List;
 import java.util.ArrayList;
 import org.apache.commons.jcs3.JCS;
@@ -31,15 +32,17 @@ public class Dimension {
     private static String client;
     private static String type;
     private static String name;
+    private static List<String> entityTypes;
     private static JSONObject wiotp;
     private static String baseUrl;
-    private static String dimensionalAPI;
+    private static String statsDimAPI;
+    private static HashMap<String, String> dimAPIMap = new HashMap<String, String>();
     private static RestClient restClient;
     private static String token;
 
     public Dimension(Config config, CacheAccess<String, TagData> tagpaths) {
-        if (config == null || tagpaths == null) {
-            throw new NullPointerException("config/tagpaths parameter cannot be null");
+        if (config == null) {
+            throw new NullPointerException("config parameter cannot be null");
         }
 
         this.config = config;
@@ -48,16 +51,45 @@ public class Dimension {
         this.client = config.getClientSite();
         this.type = config.getConnectorTypeStr();
         this.name = config.getEntityType();
+        this.entityTypes = config.getTypes();
         this.wiotp = config.getWiotpConfig();
         this.token = wiotp.getString("token");
         this.baseUrl = "https://api-" + wiotp.getString("geo") + ".connectedproducts.internetofthings.ibmcloud.com/api";
-        this.dimensionalAPI = "/master/v1/" + wiotp.getString("tenantId") + "/entityType/" + name + "/dimensional";
+        this.statsDimAPI = "/master/v1/" + wiotp.getString("tenantId") + "/entityType/" +
+            config.getStatsDeviceType() + "/dimensional";
+
+        ListIterator<String> itr = null;
+        itr = entityTypes.listIterator();
+        while (itr.hasNext()) {
+            String eType = itr.next();
+            String dAPI = "/master/v1/" + wiotp.getString("tenantId") + "/entityType/" + eType + "/dimensional";
+            dimAPIMap.put(eType, dAPI);
+        }
+            
         this.restClient = new RestClient(baseUrl, 2, wiotp.getString("key"), wiotp.getString("token"), config.getPostResponseFile());
     }
 
     public void start() {
         startDimensionThread();
     }
+
+    public void addStatsDimensions() {
+        JSONArray dimensionObj = new JSONArray();
+        String deviceId = config.getStatsDeviceId();
+        String deviceType = config.getStatsDeviceType();
+        logger.info(String.format("Add dimension data: Id:%s Type:%s Client:%s", deviceId, deviceType, client));
+
+        dimensionObj.put(createDimItem(deviceId, "CLIENT", "LITERAL", client));
+ 
+        try {
+            logger.fine("DimensionObj: " + dimensionObj.toString());
+            restClient.post(statsDimAPI, dimensionObj.toString());
+            logger.info(String.format("Dimension POST Status Code: %d", restClient.getResponseCode()));
+        } catch(Exception ex) {
+            logger.log(Level.FINE, ex.getMessage(), ex);
+        }
+    }
+    
 
     private static void processDimensions() {
         int dimAdded = 0;
@@ -86,11 +118,14 @@ public class Dimension {
                 continue;
             }
             String deviceId = td.getDeviceId();
+            String deviceType = td.getDeviceType();
+            String dimApi = dimAPIMap.get(deviceType);
             String tagpath = td.getTagpath();
+
             int dimensionStatus = td.getDimensionStatus();
 
             if (dimensionStatus == 0) {
-                logger.info("Add dimension: tagpath: " + tagpath + "    Dimention ID: " + deviceId);
+                logger.info(String.format("Add dimension: tagpath:%s Type:%s Id:%s", tagpath, deviceType, deviceId));
                 dimensionObj.put(createDimItem(deviceId, "CLIENT", "LITERAL", client));
                 dimensionObj.put(createDimItem(deviceId, "TAGPATH", "LITERAL", tagpath));
                 batchCount += 2;
@@ -111,14 +146,15 @@ public class Dimension {
                 dimRegistered += 1;
             }
  
-            if (batchCount >= 80 || totalCount == 1) {
+            // if (batchCount >= 2 || totalCount == 1) {
+            if (dimensionStatus == 0) {
                 for (int retry=0; retry<5; retry++) {
                     done = true;
                     if (batchCount == 1) break;
                     try {
                         // invoke API to create dimensional data
                         logger.fine("DimensionObj:   " + dimensionObj.toString());
-                        restClient.post(dimensionalAPI, dimensionObj.toString());
+                        restClient.post(dimApi, dimensionObj.toString());
                         logger.info(String.format("Dimension POST Status Code: %d", restClient.getResponseCode()));
                     } catch(Exception ex) {
                         logger.info("Exception message: " + ex.getMessage());

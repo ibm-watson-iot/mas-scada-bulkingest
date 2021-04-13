@@ -32,11 +32,20 @@ public class Config {
     private static String dataDir = "";
     private static int runMode = Constants.PRODUCTION;
     private static int connectorType = Constants.CONNECTOR_DEVICE;
-    private static String connectorTypeStr;
+    private static String connectorTypeStr = "device";
     private static JSONObject connConfig;
+    private static JSONArray deviceTypes;
+    private static JSONArray alarmTypes;
+    private static int deviceFolders;
+    private static int alarmFolders;
+    private static String deviceTypePrifix;
+    private static String alarmTypePrifix;
+    private static ParseTagname parseTagnameObj;
     private static String clientSite;
     private static String deviceType;
     private static String alarmType;
+    private static String statsDeviceType;
+    private static String statsDeviceId;
     private static String startDate;
     private static JSONObject wiotp;
     private static JSONObject ignitionDB;
@@ -62,12 +71,20 @@ public class Config {
     private static long fetchIntervalHistorical = 14400L;
     private static int batchInsertSize = 10000;
     private static int updateFlag = 0;
+    private static int dataPoints = 5;
     private static int httpPort;
     private static int cliPort;
+    private static int extractQueryMode = 0;  // QueryMode is not set in extract SQL. Extract all
+                                              // 1 - Discrete/Digital queryMode
+                                              // 2 - Analog queryMode
 
- 
-    public Config(JSONObject connConfig) {
+    public Config(JSONObject connConfig, String connectorTypeStr) {
         this.connConfig = connConfig;
+        this.connectorTypeStr = connectorTypeStr;
+        this.connectorType = Constants.CONNECTOR_DEVICE;
+        if (connectorTypeStr.equals("alarm")) {
+            this.connectorType = Constants.CONNECTOR_ALARM;
+        }
     }
 
     public Config(String installDir, String dataDir, String connectorTypeStr) throws Exception {
@@ -77,6 +94,7 @@ public class Config {
         this.connectorType = Constants.CONNECTOR_DEVICE;
         if (connectorTypeStr.equals("alarm")) {
             this.connectorType = Constants.CONNECTOR_ALARM;
+            this.dataPoints = 8;
         }
         String connectionConfigFile = dataDir + "/volume/config/connection.json";
         String fileContent = new String(Files.readAllBytes(Paths.get(connectionConfigFile)));
@@ -85,8 +103,21 @@ public class Config {
 
     public void set() throws Exception {
         clientSite = connConfig.getString("clientSite");
-        deviceType = connConfig.getString("deviceType");
-        alarmType = connConfig.getString("alarmType");
+
+        JSONObject deviceObj = connConfig.getJSONObject("deviceTypes");
+        JSONObject alarmObj =  connConfig.getJSONObject("alarmTypes");
+        String groupBy = deviceObj.optString("groupBy", "patterns");
+        if (groupBy.equals("patterns")) {
+            deviceTypes = deviceObj.getJSONArray("patterns");
+        } else {
+            deviceFolders = deviceObj.optInt("useFolders", 0);            
+        }
+        groupBy = alarmObj.optString("groupBy", "patterns");
+        if (groupBy.equals("patterns")) {
+            alarmTypes = alarmObj.getJSONArray("patterns");
+        } else {
+            alarmFolders = deviceObj.optInt("useFolders", 0);            
+        }
 
         long curTimeMillis = System.currentTimeMillis();
         Date date = new Date(curTimeMillis);
@@ -104,6 +135,7 @@ public class Config {
         runMode = connConfig.optInt("runMode", 0);
         fetchInterval = connConfig.optLong("fetchInterval", 30L);
         fetchIntervalHistorical = connConfig.optLong("fetchIntervalHistorical", 14400L);
+        extractQueryMode = connConfig.optInt("extractQueryMode", 0);
 
         if (this.connectorType == Constants.CONNECTOR_DEVICE) {
             fetchInterval = setLongValue("deviceFetchInterval", fetchInterval);
@@ -129,28 +161,34 @@ public class Config {
         ignitionDB = connConfig.getJSONObject("ignition");
         monitorDB = connConfig.getJSONObject("monitor");
 
+        parseTagnameObj = new ParseTagname(this);
+        deviceType = parseTagnameObj.getDefaultType();
+        alarmType = parseTagnameObj.getDefaultType();
         entityType = deviceType;
         if (connectorType == Constants.CONNECTOR_ALARM) {
             entityType = alarmType;
         }
 
+        statsDeviceType = "MAS_Ignition_Connector_Type";
+        statsDeviceId = clientSite + "_" + connectorTypeStr + "_connector";
+
         if (installDir.equals("")) {
-            logFile = entityType + "_connector.log";
+            logFile = clientSite + "_" + connectorTypeStr + ".log";
         } else {
-            logFile = installDir + "/volume/logs/" + entityType + "_connector.log";
+            logFile = installDir + "/volume/logs/" + clientSite + "_" + connectorTypeStr + ".log";
         }
         if (runMode == Constants.PRODUCTION) {
             postResponseFile = "";
         } else {
             if (installDir.equals("")) {
-                postResponseFile = entityType + "_post.log";
+                postResponseFile = clientSite + "_" + connectorTypeStr + "_post.log";
             } else {
-                postResponseFile = installDir + "/volume/logs/" + entityType + "_post.log";
+                postResponseFile = installDir + "/volume/logs/" + clientSite + "_" + connectorTypeStr + "_post.log";
             }
         }
 
-        sourceDbType = setIgnitionDbParams(ignitionDB);
-        destDbType = setMonitorDbParams(monitorDB);
+        destDbType = setMonitorDbParams();
+        sourceDbType = setIgnitionDbParams();
 
         csvFile = dataDir + "/volume/data/" + entityType + ".csv";
         updateFile = dataDir + "/volume/config/.upgrade";
@@ -166,6 +204,15 @@ public class Config {
         } else {
             pythonPath = "python3";
         }
+
+    }
+
+    public String getInstallDir() {
+        return installDir;
+    }
+
+    public String getDataDir() {
+        return dataDir;
     }
 
     public String getLogFile() {
@@ -204,6 +251,10 @@ public class Config {
         return fetchIntervalHistorical;
     }
 
+    public int getExtractQueryMode() {
+        return extractQueryMode;
+    }
+
     public int getBatchInsertSize() {
         return batchInsertSize;
     }
@@ -214,10 +265,6 @@ public class Config {
 
     public int getCLIPort() {
         return cliPort;
-    }
-
-    public String getDataDir() {
-        return dataDir;
     }
 
     public String getPostResponseFile() {
@@ -236,12 +283,28 @@ public class Config {
         return clientSite;
     }
 
+    public JSONArray getDeviceTypes() {
+        return deviceTypes;
+    }
+
+    public JSONArray getAlarmTypes() {
+        return alarmTypes;
+    }
+
     public String getDeviceType() {
         return deviceType;
     }
 
     public String getAlarmType() {
         return alarmType;
+    }
+
+    public String getStatsDeviceType() {
+        return statsDeviceType;
+    }
+
+    public String getStatsDeviceId() {
+        return statsDeviceId;
     }
 
     public String getStartDate() {
@@ -321,96 +384,9 @@ public class Config {
         return destDbType;
     }
 
-    public String[] getMonitorDBCols() {
-        if (this.connectorType == 1) {
-            String [] dbCols = {"TAGID", "INTVALUE", "FLOATVALUE", "STRINGVALUE", "DATEVALUE", "EVT_NAME",
-                "DEVICETYPE", "DEVICEID", "LOGICALINTERFACE_ID", "EVENTTYPE",
-                "FORMAT", "RCV_TIMESTAMP_UTC", "UPDATED_UTC"};
-            return dbCols;
-        }
-
-        String [] dbCols = {"ALARMID", "EVENTID", "ACKBY", "NAME", "ETYPE", "DISPLAYPATH", "PRIORITY", "VALUE",
-                "DEVICETYPE", "DEVICEID", "LOGICALINTERFACE_ID", "EVENTTYPE",
-                "FORMAT", "RCV_TIMESTAMP_UTC", "UPDATED_UTC"};
-        return dbCols;
+    public int getDataPoints() {
+        return dataPoints;
     }
-
-    public String getMonitorInsertSQL() {
-        if (this.insertSQL.equals("")) {
-            if (this.connectorType == 1) {
-                this.insertSQL = "INSERT INTO IOT_" + this.entityType.toUpperCase() +
-                    " (TAGID, INTVALUE, FLOATVALUE, STRINGVALUE, DATEVALUE, EVT_NAME, DEVICETYPE, DEVICEID, " +
-                    "LOGICALINTERFACE_ID, EVENTTYPE, FORMAT, RCV_TIMESTAMP_UTC, UPDATED_UTC) VALUES " +
-                    "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            } else {
-                this.insertSQL = "INSERT INTO IOT_" + this.entityType.toUpperCase() +
-                    " (ALARMID,EVENTID,ACKBY,NAME,ETYPE,DISPLAYPATH,PRIORITY,VALUE," +
-                    "DEVICETYPE,DEVICEID,LOGICALINTERFACE_ID,EVENTTYPE,FORMAT,RCV_TIMESTAMP_UTC,UPDATED_UTC) " +
-                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            }
-        }
-        return this.insertSQL;
-    }
-
-    public PreparedStatement getMonitorPS(PreparedStatement ps, Map<String, List<Object>> sourceMap, int i) throws Exception {
-        if (this.connectorType == 1) {
-
-            ps.setInt(1, Integer.parseInt((sourceMap.get("TAGID").get(i)).toString()));
-            if (((sourceMap.get("INTVALUE").get(i)).toString()).equals("null")) {
-                ps.setInt(2, 0);
-            } else {
-                ps.setInt(2, Integer.parseInt((sourceMap.get("INTVALUE").get(i)).toString()));
-            }
-            if (((sourceMap.get("FLOATVALUE").get(i)).toString()).equals("null")) {
-                ps.setDouble(3, 0.0);
-            } else {
-                ps.setDouble(3, Double.parseDouble((sourceMap.get("FLOATVALUE").get(i)).toString()));
-            }
-            ps.setString(4, String.valueOf(sourceMap.get("STRINGVALUE").get(i)));
-            ps.setString(5, String.valueOf(sourceMap.get("DATEVALUE").get(i)));
-            ps.setString(6, String.valueOf(sourceMap.get("EVT_NAME").get(i)));
-            ps.setString(7, String.valueOf(sourceMap.get("DEVICETYPE").get(i)));
-            ps.setString(8, String.valueOf(sourceMap.get("DEVICEID").get(i)));
-            ps.setString(9, String.valueOf(sourceMap.get("LOGICALINTERFACE_ID").get(i)));
-            ps.setString(10,String.valueOf(sourceMap.get("EVENTTYPE").get(i)));
-            ps.setString(11,String.valueOf(sourceMap.get("FORMAT").get(i)));
-            ps.setTimestamp(12,Timestamp.valueOf((sourceMap.get("RCV_TIMESTAMP_UTC").get(i)).toString()));
-            ps.setTimestamp(13,Timestamp.valueOf((sourceMap.get("UPDATED_UTC").get(i)).toString()));
-
-        } else {
-
-            ps.setDouble(1, Double.parseDouble((sourceMap.get("ALARMID").get(i)).toString()));
-            ps.setString(2, String.valueOf((sourceMap.get("EVENTID").get(i)).toString()));
-            ps.setString(3, String.valueOf((sourceMap.get("ACKBY").get(i)).toString()));
-            ps.setString(4, String.valueOf((sourceMap.get("NAME").get(i)).toString()));
-            if (((sourceMap.get("ETYPE").get(i)).toString()).equals("null")) {
-                ps.setDouble(5, 0.0);
-            } else {
-                ps.setDouble(5, Double.parseDouble((sourceMap.get("ETYPE").get(i)).toString()));
-            }
-            ps.setString(6, String.valueOf(sourceMap.get("DISPLAYPATH").get(i)));
-            if (((sourceMap.get("PRIORITY").get(i)).toString()).equals("null")) {
-                ps.setDouble(7, 0.0);
-            } else {
-                ps.setDouble(7, Double.parseDouble((sourceMap.get("PRIORITY").get(i)).toString()));
-            }
-            if (((sourceMap.get("VALUE").get(i)).toString()).equals("null")) {
-                ps.setDouble(8, 0.0);
-            } else {
-                ps.setDouble(8, Double.parseDouble((sourceMap.get("VALUE").get(i)).toString()));
-            }
-            ps.setString(9, String.valueOf(sourceMap.get("DEVICETYPE").get(i)));
-            ps.setString(10, String.valueOf(sourceMap.get("DEVICEID").get(i)));
-            ps.setString(11, String.valueOf(sourceMap.get("LOGICALINTERFACE_ID").get(i)));
-            ps.setString(12,String.valueOf(sourceMap.get("EVENTTYPE").get(i)));
-            ps.setString(13,String.valueOf(sourceMap.get("FORMAT").get(i)));
-            ps.setTimestamp(14,Timestamp.valueOf((sourceMap.get("RCV_TIMESTAMP_UTC").get(i)).toString()));
-            ps.setTimestamp(15,Timestamp.valueOf((sourceMap.get("UPDATED_UTC").get(i)).toString()));
-
-        }
-        return ps;
-    }
-
 
     public String getPythonPath() {
         return pythonPath;
@@ -428,7 +404,15 @@ public class Config {
         return monitorDB;
     }
 
-    private int setIgnitionDbParams(JSONObject ignitionDB) {
+    public String getTypeByTagname(String tagname) {
+        return parseTagnameObj.getType(tagname);
+    }
+
+    public List<String> getTypes() {
+        return parseTagnameObj.getTypes();
+    }
+
+    private static int setIgnitionDbParams() {
         int type = 1;
 
         String dbType = ignitionDB.getString("dbtype"); // mysql and mssql
@@ -449,19 +433,19 @@ public class Config {
         return type;
     }
 
-    private int setMonitorDbParams(JSONObject monitorDB) {
+    private static int setMonitorDbParams() {
         int type = 1;
 
-        String dbType = monitorDB.getString("dbtype"); // db2 and postgres
+        String dbType = monitorDB.optString("dbtype", "db2"); // db2 or postgres
         String destHost = monitorDB.getString("host");
         String destPort = monitorDB.getString("port");
         String destSchema = monitorDB.getString("schema");
         destDbUser = monitorDB.getString("user");
         destDbPass = monitorDB.getString("password");
 
-        // if ( dbType.compareTo("db2") == 0 ) {
+        if ( dbType.compareTo("db2") == 0 ) {
             destDbUrl = "jdbc:db2://" + destHost + ":" + destPort + "/BLUDB:sslConnection=true;";
-        // }
+        }
         return type;
     }
 

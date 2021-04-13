@@ -85,11 +85,13 @@ public class Device {
                 continue;
             }
             String deviceId = td.getDeviceId();
+            String deviceType = td.getDeviceType();
             int deviceStatus = td.getDeviceStatus();
 
             if (deviceStatus == 0) {
-                logger.fine("Add device: " + deviceId);
-                deviceObj.put(createDeviceItem(name, deviceId, token));
+                logger.info("Add device: " + deviceId + "  type: " + deviceType);
+                // deviceObj.put(createDeviceItem(name, deviceId, token));
+                deviceObj.put(createDeviceItem(deviceType, deviceId, token));
                 td.setDeviceStatus(1);
                 tagpaths.put(id, td);
                 batchCount += 1;

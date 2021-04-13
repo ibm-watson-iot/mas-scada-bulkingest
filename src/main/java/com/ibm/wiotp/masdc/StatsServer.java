@@ -68,7 +68,8 @@ public class StatsServer {
         sb.append("<h4>Current Status</h4> \r\n");
         sb.append(String.format("<pre>Client Site: %s \r\n", config.getClientSite()));
         sb.append(String.format("Entity Type: %s \r\n", config.getEntityType()));
-        sb.append(String.format("Total Registered Tags: %d \r\n", offsetRecord.getTagCount()));
+        sb.append(String.format("Total Registered Tags: %d \r\n", offsetRecord.getEntityCount()));
+        sb.append(String.format("Total Registered Types: %d \r\n", offsetRecord.getEntityTypeCount()));
         sb.append(String.format("\r\n"));
         sb.append(String.format("Last processing cycle stats:\r\n"));
         sb.append(String.format("Extracted Records: %d \r\n", offsetRecord.getProcessedCount()));

@@ -16,6 +16,9 @@ You can build and install the data connector on an on-premise host system.
 ## Dependencies
 
 * OpenJDK 11+
+* Commons JCS
+* org.json
+* JDBC driver for MySQL and IBM DB2
 
 
 ## Supported Operating Environment

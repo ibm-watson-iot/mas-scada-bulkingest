@@ -20,25 +20,23 @@ public class MonitorTable {
     private Config config;
     private JSONObject datalake;
     private String type;
-    private String name;
     private String host;
     private String port;
     private String user;
     private String pass;
     private String schema;
     private String dbUrl;
-    private String ddlQuerySql;
     private String indexQuerySql;
+    private String statsDDLQuerySql;
 
     public MonitorTable(Config config) throws Exception {
         if (config == null) {
-            throw new NullPointerException("config/tagpaths parameter cannot be null");
+            throw new NullPointerException("config parameter cannot be null");
         }
 
         this.config = config;
 
         this.type = config.getConnectorTypeStr();
-        this.name = config.getEntityType();
         this.datalake = config.getMonitorConfig();
         this.host = datalake.getString("host");
         this.port = datalake.getString("port");
@@ -48,93 +46,108 @@ public class MonitorTable {
         this.dbUrl = "jdbc:db2://" + host + ":" + port + "/BLUDB:sslConnection=true;";
     }
 
-    public void create() {
-        if (this.ddlQuerySql != null) return;
-        if (type.equals("device")) {
-            // create ddl for device type
-            StringBuilder sb =  new StringBuilder("CREATE TABLE ");
-            sb.append(this.schema).append(".").append("IOT_").append(name).append(" ( ");
-            sb.append("TAGID INTEGER, ");
-            sb.append("INTVALUE INTEGER, ");
-            sb.append("FLOATVALUE DOUBLE, ");
-            sb.append("STRINGVALUE VARCHAR(256), ");
-            sb.append("DATEVALUE VARCHAR(256), ");
-            sb.append("EVT_NAME VARCHAR(256), "); 
-            sb.append("DEVICETYPE VARCHAR(64), "); 
-            sb.append("DEVICEID VARCHAR(256), ");
-            sb.append("LOGICALINTERFACE_ID VARCHAR(64), ");
-            sb.append("EVENTTYPE VARCHAR(64), ");
-            sb.append("FORMAT VARCHAR(32), ");
-            sb.append("RCV_TIMESTAMP_UTC TIMESTAMP(12), ");
-            sb.append("UPDATED_UTC TIMESTAMP(12) )" );
-            ddlQuerySql = sb.toString();
+    public String getDeviceDDL(String name) {
+        StringBuilder sb =  new StringBuilder("CREATE TABLE ");
+        sb.append(this.schema).append(".").append("IOT_").append(name).append(" ( ");
+        sb.append("TAGID INTEGER, ");
+        sb.append("INTVALUE INTEGER, ");
+        sb.append("FLOATVALUE DOUBLE, ");
+        sb.append("STRINGVALUE VARCHAR(256), ");
+        sb.append("DATEVALUE VARCHAR(256), ");
+        sb.append("EVT_NAME VARCHAR(256), "); 
+        sb.append("DEVICETYPE VARCHAR(64), "); 
+        sb.append("DEVICEID VARCHAR(256), ");
+        sb.append("LOGICALINTERFACE_ID VARCHAR(64), ");
+        sb.append("EVENTTYPE VARCHAR(64), ");
+        sb.append("FORMAT VARCHAR(32), ");
+        sb.append("RCV_TIMESTAMP_UTC TIMESTAMP(12), ");
+        sb.append("UPDATED_UTC TIMESTAMP(12) )" );
+        String deviceDDL = sb.toString();
+        return deviceDDL;
+    }
 
-            sb =  new StringBuilder("CREATE UNIQUE INDEX DEVICEID_AND_RCV_TIMESTAMP_UTC ON ");
-            sb.append(this.schema).append(".").append("IOT_").append(name).append(" ");
-            sb.append("(DEVICEID, RCV_TIMESTAMP_UTC)"); 
-            indexQuerySql = sb.toString();
+    public String getIndexSQL(String name) {
+        StringBuilder sb =  new StringBuilder("CREATE UNIQUE INDEX DEVICEID_AND_RCV_TIMESTAMP_UTC ON ");
+        sb.append(this.schema).append(".").append("IOT_").append(name).append(" ");
+        sb.append("(DEVICEID, RCV_TIMESTAMP_UTC)"); 
+        String indexSql = sb.toString();
+        return indexSql;
+    }
 
-        } else {
-            // create ddl for alarm type
-            StringBuilder sb =  new StringBuilder("CREATE TABLE ");
-            sb.append(this.schema).append(".").append("IOT_").append(name).append(" ( ");
-            sb.append("ALARMID INTEGER, ");
-            sb.append("EVENTID VARCHAR(256), ");
-            sb.append("DISPLAYPATH VARCHAR(256), ");
-            sb.append("PRIORITY INTEGER, ");
-            sb.append("ETYPE INTEGER, ");
-            sb.append("NAME VARCHAR(256), ");
-            sb.append("ACKBY VARCHAR(256), ");
-            sb.append("VALUE DOUBLE, ");
-            sb.append("DEVICETYPE VARCHAR(64), "); 
-            sb.append("DEVICEID VARCHAR(256), ");
-            sb.append("LOGICALINTERFACE_ID VARCHAR(64), ");
-            sb.append("EVENTTYPE VARCHAR(64), ");
-            sb.append("FORMAT VARCHAR(32), ");
-            sb.append("RCV_TIMESTAMP_UTC TIMESTAMP(12), ");
-            sb.append("UPDATED_UTC TIMESTAMP(12) )" );
-            ddlQuerySql = sb.toString();
+    public String getAlarmDDL(String name) {
+        StringBuilder sb =  new StringBuilder("CREATE TABLE ");
+        sb.append(this.schema).append(".").append("IOT_").append(name).append(" ( ");
+        sb.append("ALARMID INTEGER, ");
+        sb.append("EVENTID VARCHAR(256), ");
+        sb.append("DISPLAYPATH VARCHAR(256), ");
+        sb.append("PRIORITY INTEGER, ");
+        sb.append("ETYPE INTEGER, ");
+        sb.append("NAME VARCHAR(256), ");
+        sb.append("ACKBY VARCHAR(256), ");
+        sb.append("VALUE DOUBLE, ");
+        sb.append("DEVICETYPE VARCHAR(64), "); 
+        sb.append("DEVICEID VARCHAR(256), ");
+        sb.append("LOGICALINTERFACE_ID VARCHAR(64), ");
+        sb.append("EVENTTYPE VARCHAR(64), ");
+        sb.append("FORMAT VARCHAR(32), ");
+        sb.append("RCV_TIMESTAMP_UTC TIMESTAMP(12), ");
+        sb.append("UPDATED_UTC TIMESTAMP(12) )" );
+        String alarmDDL = sb.toString();
+        return alarmDDL;
+    }
 
-            sb =  new StringBuilder("CREATE UNIQUE INDEX DEVICEID_AND_RCV_TIMESTAMP_UTC ON ");
-            sb.append(this.schema).append(".").append("IOT_").append(name).append(" ");
-            sb.append("(DEVICEID, RCV_TIMESTAMP_UTC)"); 
-            indexQuerySql = sb.toString();
-        }
+    public String getConnectorStatsDDL(String name) {
+        StringBuilder sb =  new StringBuilder("CREATE TABLE ");
+        sb.append(this.schema).append(".").append("IOT_").append(name).append(" ( ");
+        sb.append("EXTRACTED DOUBLE, ");
+        sb.append("UPLOADED DOUBLE, ");
+        sb.append("RATE DOUBLE, ");
+        sb.append("ENTITYTYPECOUNT DOUBLE, ");
+        sb.append("ENTITYCOUNT DOUBLE, ");
+        sb.append("EXTSTARTTIME VARCHAR(32), ");
+        sb.append("EXTENDTIME VARCHAR(32), ");
+        sb.append("DEVICETYPE VARCHAR(64), "); 
+        sb.append("DEVICEID VARCHAR(64), ");
+        sb.append("LOGICALINTERFACE_ID VARCHAR(64), ");
+        sb.append("EVENTTYPE VARCHAR(64), ");
+        sb.append("FORMAT VARCHAR(32), ");
+        sb.append("RCV_TIMESTAMP_UTC TIMESTAMP(12), ");
+        sb.append("UPDATED_UTC TIMESTAMP(12) )" );
+        String statsDDL = sb.toString();
+        return statsDDL;
+    }
 
-        // create table 
+    public int createTable(String tableName, String ddlStr) throws Exception {
         Connection con;
         Statement stmt;
+        int created = 0;
 
         try {
             Class.forName("com.ibm.db2.jcc.DB2Driver");
             con = DriverManager.getConnection(dbUrl, user, pass);
             DatabaseMetaData dbm = con.getMetaData();
-            ResultSet rs = dbm.getTables(null, this.schema, "IOT_" + this.name.toUpperCase(), null);
+            ResultSet rs = dbm.getTables(null, this.schema, tableName.toUpperCase(), null);
             if (rs.next()) {
-                logger.info("Table " + "IOT_" + this.name.toUpperCase() + " exists.");
+                logger.info("Table " + tableName.toUpperCase() + " exists.");
             } else {
                 con.setAutoCommit(false);
                 stmt = con.createStatement();
-                stmt.executeUpdate(ddlQuerySql);
+                stmt.executeUpdate(ddlStr);
                 stmt.close();
                 con.commit();
+                created = 1;
             }
             con.close();
         }
         catch (Exception ex) {
             logger.log(Level.INFO, ex.getMessage(), ex);
+            throw(ex);
         }
+
+        return created;
     }
 
-    public String getDDLQuerySql() {
-        return ddlQuerySql;
-    }
-
-    public String getIndexQuerySql() {
-        return indexQuerySql;
-    }
-
-    public void indexTable() {
+    public void indexTable(String tableName, String ddlStr) {
         Connection con;
         Statement stmt;
 
@@ -142,21 +155,21 @@ public class MonitorTable {
             Class.forName("com.ibm.db2.jcc.DB2Driver");
             con = DriverManager.getConnection(dbUrl, user, pass);
             DatabaseMetaData dbm = con.getMetaData();
-            ResultSet rs = dbm.getTables(null, this.schema, "IOT_" + this.name.toUpperCase(), null);
+            ResultSet rs = dbm.getTables(null, this.schema, tableName.toUpperCase(), null);
             if (rs.next()) {
-                logger.info("Table " + "IOT_" + this.name.toUpperCase() + " exists.");
+                logger.info("Table " + tableName.toUpperCase() + " exists.");
                 con.setAutoCommit(false);
                 stmt = con.createStatement();
                 stmt.executeUpdate(indexQuerySql);
                 stmt.close();
                 con.commit();
             } else {
-                logger.info("Can not index an non-existence Table " + "IOT_" + this.name.toUpperCase());
+                logger.info("Can not index an non-existence Table " + tableName.toUpperCase());
             }
             con.close();
         }
         catch (Exception ex) {
-            logger.info("Table index error: " + "IOT_" + this.name.toUpperCase() + " : " + ex.getMessage());
+            logger.info("Table index error: " + tableName.toUpperCase() + " : " + ex.getMessage());
         }
     }
 }

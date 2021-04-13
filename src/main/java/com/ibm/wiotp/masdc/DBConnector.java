@@ -17,10 +17,14 @@ import java.util.logging.Level;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.ArrayList;
 import java.util.UUID;
+import java.text.DecimalFormat;
 import org.json.JSONObject;
 import org.json.JSONArray;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.apache.commons.jcs3.access.CacheAccess;
 
 
@@ -29,11 +33,15 @@ public class DBConnector {
     private static final Logger logger = Logger.getLogger("mas-ignition-connector");
 
     private static Config config = null;
+    private static DBHelper dbHelper = null;
     private static OffsetRecord offsetRecord = null;
     private static int type;
     private static String DB_URL;
     private static String[] dbCols;
     private static String entityType;
+    private static List<String> entityTypes;
+    private static String statsDeviceType;
+    private static String statsDeviceId;
     private static int runMode;
     private static String csvFile;
     private static int connectorType;
@@ -43,25 +51,34 @@ public class DBConnector {
     private static int sourceDBConnState = 0;
     private static int destDBConnState = 0;
     private static int sourceDBColumnCount = 0;
+    private static String clientSite;
+    private static int dataPoints;
 
     public DBConnector(Config config, OffsetRecord offsetRecord, CacheAccess<String, TagData> tagpaths) throws Exception {
-        if (config == null || offsetRecord == null || tagpaths == null) {
-            throw new NullPointerException("config/offsetRecord/tagpaths parameter cannot be null");
+        if (config == null || offsetRecord == null) {
+            throw new NullPointerException("config/offsetRecord parameter cannot be null");
         }
 
         this.config = config;
         this.offsetRecord = offsetRecord;
         this.tagpaths = tagpaths;
 
+        clientSite = config.getClientSite();
         type = config.getIgnitionDBType();
-        DB_URL = config.getIgnitionDBUrl();
-        dbCols = config.getMonitorDBCols();
         entityType = config.getEntityType();
+        entityTypes = config.getTypes();
         runMode = config.getRunMode();
         csvFile = config.getCSVFile();
         connectorType = config.getConnectorType();
         connectorTypeStr = config.getConnectorTypeStr();
         batchInsertSize = config.getBatchInsertSize();
+        statsDeviceType = config.getStatsDeviceType();
+        statsDeviceId = config.getStatsDeviceId();
+        dataPoints = config.getDataPoints();
+
+        this.dbHelper = new DBHelper(config);
+        dbCols = dbHelper.getMonitorDBCols();
+        DB_URL = config.getIgnitionDBUrl();
     }    
 
 
@@ -72,6 +89,7 @@ public class DBConnector {
         Connection conn = null;
         Statement stmt = null;
         int noUpload = 1;
+        ExecutorService uploadWorkerPool = Executors.newCachedThreadPool();;
 
         try {
             logger.info("Connecting to source to extract data for " + entityType);
@@ -153,9 +171,16 @@ public class DBConnector {
                 long rowCount = 0;
                 long currentTotalCount = 0;
                 Map<String, List<Object>> sourceMap = new HashMap<String, List<Object>>();
+                // Map<String, List<Object>> sourceMap = null;
                 try {
                     rowCount = getSourceMap(sourceDBColumnNames, rs, sourceMap);
                     currentTotalCount = offsetRecord.setProcessedCount(rowCount);
+
+                    // TransformData tData = new TransformData(config, dbCols, offsetRecord, tagpaths, sourceDBColumnNames, rs);
+                    // tData.set();
+                    // sourceMap = tData.get();
+                    // rowCount = tData.getRowCount(); 
+                    // currentTotalCount = offsetRecord.setProcessedCount(rowCount);
                 } catch(Exception e) {
                     logger.log(Level.FINE, e.getMessage(), e);
                 } 
@@ -165,24 +190,30 @@ public class DBConnector {
                 if (conn != null) conn.close();
  
                 if (rowCount == 0) {
-                    sourceMap.clear();
+                    if (sourceMap != null) sourceMap.clear();
                     int waitFlag = offsetRecord.updateOffsetFile(startTimeSecs, endTimeSecs, year, month, Constants.EXTRACT_STATUS_TABLE_NO_DATA);
                     long waitTime = offsetRecord.getWaitTimeMilli(waitFlag, cycleStartTimeMillis);
-                    logger.info(String.format("No Data extracted: currCount=%d waitTimeMilli=%d currTagCount=%d\n", 
-                        currentTotalCount, waitTime, offsetRecord.getTagCount()));
+                    logger.info(String.format("No Data extracted: currCount=%d waitTimeMilli=%d entities=%d\n", 
+                        currentTotalCount, waitTime, offsetRecord.getEntityCount()));
                     try {
                         Thread.sleep(waitTime);
                     } catch (Exception e) {}
                     continue;
                 }
     
-                logger.info(String.format("Data extracted: cols=%d rows=%d currCount=%d currTagCount=%d\n", 
-                    sourceDBColumnCount, rowCount, currentTotalCount, offsetRecord.getTagCount()));
+                logger.info(String.format("Data extracted: cols=%d rows=%d currCount=%d entities=%d\n", 
+                    sourceDBColumnCount, rowCount, currentTotalCount, offsetRecord.getEntityCount()));
 
                 int nuploaded = 0;
                 if (rowCount > 0) {
-                    nuploaded = batchInsert(sourceMap, rowCount);
-                    offsetRecord.setUploadedCount(nuploaded);
+                    ListIterator<String> itr = null;
+                    itr = entityTypes.listIterator();
+                    while (itr.hasNext()) {
+                        String eType = itr.next();
+                        // System.out.println("=======> Type: " + eType);
+                        nuploaded = batchInsert(sourceMap, rowCount, eType);
+                        offsetRecord.setUploadedCount(nuploaded);
+                    }
                 }
 
                 sourceMap.clear();
@@ -196,9 +227,8 @@ public class DBConnector {
                 long rate = rowCount * 1000 / timeDiff;
                 offsetRecord.setRate(rate);
 
-                logger.info(String.format("Cycle stats: extracted:%d uploaded=%d rate=%d waitTimeMilli=%d currTagCount=%d\n", 
-                        rowCount, nuploaded, rate, waitTime, offsetRecord.getTagCount()));
-
+                logger.info(String.format("Cycle stats: extracted:%d rate=%d waitTimeMilli=%d currEntityCount=%d\n", 
+                        rowCount, rate, waitTime, offsetRecord.getEntityCount()));
                 if (runMode == Constants.TEST) {
                    break;
                 }
@@ -215,40 +245,50 @@ public class DBConnector {
         }
     }
 
-    public static int batchInsert(Map<String, List<Object>> sourceMap, long totalRows) {
+    public static int batchInsert(Map<String, List<Object>> sourceMap, long totalRows, String eType) {
         int rowsProcessed = 0;
         int batchCount = 0;
-        
+        String connStr = config.getMonitorDBUrl();
+        String dbUser = config.getMonitorDBUser();
+        String dbPassword = config.getMonitorDBPass();
+       
+        if (connStr == null || dbUser == null || dbPassword == null) {
+            logger.severe("Monitor DB Configuration issue: null URL, user or password");
+            return rowsProcessed;
+        } 
         try {
             Class.forName("com.ibm.db2.jcc.DB2Driver");
 
-            String insertSQL = config.getMonitorInsertSQL();
+            String insertSQL = dbHelper.getMonitorInsertSQL(eType);
             logger.info("SQL Stmt: " + insertSQL);
 
-            Connection conn = getDestinationDBConnection();
+            Connection conn = getDestinationDBConnection(connStr, dbUser, dbPassword);
             PreparedStatement ps = conn.prepareStatement(insertSQL);
 
             for (int i=0; i<totalRows; i++) {
                 try {
-                    ps = config.getMonitorPS(ps, sourceMap, i);
-                    ps.addBatch();
-                    batchCount += 1;
-                    rowsProcessed += 1; 
-                    if ( batchCount >= batchInsertSize ) {
-                        logger.info(String.format("Batch update table: count:%d", batchCount));
-                        try {
-                            ps.executeBatch();
-                        } catch(Exception bex) {
-                            logger.log(Level.FINE, bex.getMessage(), bex);
-                            rowsProcessed = rowsProcessed - batchCount; 
-                            if (bex instanceof SQLException) {
-                                SQLException ne = ((SQLException)bex).getNextException();
-                                logger.log(Level.FINE, ne.getMessage(), ne);
+                    String sourceMapEType = String.valueOf(sourceMap.get("DEVICETYPE").get(i));
+                    if (sourceMapEType.equals(eType)) {
+                        ps = dbHelper.getMonitorPS(ps, sourceMap, i);
+                        ps.addBatch();
+                        batchCount += 1;
+                        rowsProcessed += 1; 
+                        if ( batchCount >= batchInsertSize ) {
+                            logger.info(String.format("Batch update table: count:%d", batchCount));
+                            try {
+                                ps.executeBatch();
+                            } catch(Exception bex) {
+                                logger.log(Level.FINE, bex.getMessage(), bex);
+                                rowsProcessed = rowsProcessed - batchCount; 
+                                if (bex instanceof SQLException) {
+                                    SQLException ne = ((SQLException)bex).getNextException();
+                                    logger.log(Level.FINE, ne.getMessage(), ne);
+                                }
                             }
+                            conn.commit();
+                            ps.clearBatch();
+                            batchCount = 0;
                         }
-                        conn.commit();
-                        ps.clearBatch();
-                        batchCount = 0;
                     }
                 } catch (Exception ex) {
                     logger.log(Level.FINE, ex.getMessage(), ex);
@@ -280,6 +320,57 @@ public class DBConnector {
 
         return rowsProcessed;
     }
+
+    public static int insertStats(OffsetRecord offsetRecord) {
+        int rowsProcessed = 1;
+        String connStr = config.getMonitorDBUrl();
+        String dbUser = config.getMonitorDBUser();
+        String dbPassword = config.getMonitorDBPass();
+        
+        try {
+            Class.forName("com.ibm.db2.jcc.DB2Driver");
+
+            String insertSQL = dbHelper.getConectorStatsInsertSQL(config.getStatsDeviceType());
+            logger.info("SQL Stmt: " + insertSQL);
+
+            Connection conn = getDestinationDBConnection(connStr, dbUser, dbPassword);
+            PreparedStatement ps = conn.prepareStatement(insertSQL);
+
+            ps.setLong(1, offsetRecord.getProcessedCount());
+            ps.setDouble(2, offsetRecord.getUploadedCount());
+            ps.setDouble(3, offsetRecord.getRate());
+            ps.setDouble(4, offsetRecord.getEntityTypeCount());
+            ps.setDouble(5, offsetRecord.getEntityCount());
+           
+            Timestamp ts = new Timestamp(offsetRecord.getStartTimeSecs() * 1000);
+            ps.setString(6, ts.toString());
+            ts = new Timestamp(offsetRecord.getEndTimeSecs() * 1000);
+            ps.setString(7, ts.toString());
+
+            ps.setString(8, statsDeviceType);
+            ps.setString(9, statsDeviceId);
+            ps.setString(10, "null");
+            ps.setString(11, "status");
+            ps.setString(12, "JSON");
+
+            ts = new Timestamp(System.currentTimeMillis());
+            ps.setTimestamp(13, ts);
+            ps.setTimestamp(14, ts);
+
+            ps.execute();
+            conn.commit();
+            conn.close();
+            logger.info("Sent connector stats");
+        }
+        catch (Exception e) {
+            logger.log(Level.INFO, e.getMessage(), e);
+            // logger.info("Failed to send connector stats. " + e.getMessage());
+            rowsProcessed = 0;
+        }
+
+        return rowsProcessed;
+    }
+
 
     private static Connection getSourceConnection(int type) {
         Connection conn = null;
@@ -315,7 +406,6 @@ public class DBConnector {
         }
 
         while (rs.next()) {
-            sourceMap.get("DEVICETYPE").add(entityType);
             sourceMap.get("EVENTTYPE").add(connectorTypeStr);
             sourceMap.get("FORMAT").add("JSON");
             sourceMap.get("LOGICALINTERFACE_ID").add("null");
@@ -326,30 +416,38 @@ public class DBConnector {
                     if (colName.equals("tagpath")) {
                         String tagpath = rs.getString(i);
                         String data = UUID.nameUUIDFromBytes(tagpath.getBytes()).toString();
-                        TagData td = new TagData(tagpath, data);
+                        String dType = config.getTypeByTagname(tagpath);
+                        TagData td = new TagData(tagpath, data, dType);
                         try {
                             tagpaths.putSafe(tagpath, td);
-                            offsetRecord.setTagCount(1);
+                            offsetRecord.setEntityCount(1);
                         } catch(Exception e) {}
+                        sourceMap.get("DEVICETYPE").add(dType);
                         sourceMap.get("DEVICEID").add(data);
                         String[] tagelems = tagpath.split("/");
                         if (connectorType == Constants.CONNECTOR_DEVICE) {
                             sourceMap.get("EVT_NAME").add(tagelems[tagelems.length-1]);
                         }
+
                     } else if (colName.equals("t_stamp")) {
                         long lastTimeStamp = rs.getLong(i);
                         Timestamp ts = new Timestamp(lastTimeStamp);
                         sourceMap.get("RCV_TIMESTAMP_UTC").add(ts);
                         sourceMap.get("UPDATED_UTC").add(ts);
+
                     } else if (colName.equals("eventtype")) {
                         sourceMap.get("ETYPE").add(rs.getObject(i));
+
                     } else if (colName.equals("eventtime")) {
                         sourceMap.get("RCV_TIMESTAMP_UTC").add(rs.getObject(i));
                         sourceMap.get("UPDATED_UTC").add(rs.getObject(i));
+
                     } else if (colName.equals("id")) {
                         sourceMap.get("ALARMID").add(rs.getLong(i));
+
                     } else { 
                         sourceMap.get(colName.toUpperCase()).add(rs.getObject(i));
+
                     }
                 } else {
                     String data = "null";
@@ -371,12 +469,12 @@ public class DBConnector {
         } catch (Exception e) {}
     }
 
-    private static Connection getDestinationDBConnection() {
+    private static Connection getDestinationDBConnection(String connStr, String dbUser, String dbPassword) {
         Connection conn = null;
+        
         while (conn == null) {
             try {
-                String monitorConnStr = config.getMonitorDBUrl();
-                conn = DriverManager.getConnection(monitorConnStr, config.getMonitorDBUser(), config.getMonitorDBPass());
+                conn = DriverManager.getConnection(connStr, dbUser, dbPassword);
                 conn.setAutoCommit(false);
                 destDBConnState = 1;
             } catch(Exception e) {

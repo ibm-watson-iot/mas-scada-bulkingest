@@ -9,8 +9,8 @@
 
 package com.ibm.wiotp.masdc;
 
-import java.util.Map;
-import java.util.HashMap;
+import java.util.List;
+import java.util.ListIterator;
 import java.util.logging.*;
 import org.json.JSONObject;
 import org.json.JSONArray;
@@ -20,8 +20,9 @@ public class DeviceType {
     private static final Logger logger = Logger.getLogger("mas-ignition-connector");
 
     private static String client;
-    private static String type;
-    private static String name;
+    private static int    type;
+    private static List<String> entityTypes;
+    // private static String name;
     private static JSONObject wiotp;
     private static String baseUrl;
     private static String deviceTypeAPI;
@@ -36,8 +37,9 @@ public class DeviceType {
         this.config = config;
 
         this.client = config.getClientSite();
-        this.type = config.getConnectorTypeStr();
-        this.name = config.getEntityType();
+        this.type = config.getConnectorType();
+        // this.name = config.getEntityType();
+        this.entityTypes = config.getTypes();
         this.wiotp = config.getWiotpConfig();
         this.baseUrl = "https://" + wiotp.getString("orgId") + ".internetofthings.ibmcloud.com/";
         this.deviceTypeAPI = "api/v0002/device/types";
@@ -45,14 +47,29 @@ public class DeviceType {
     }
 
     public void register() {
-        int batchCount = 1;
-        JSONObject deviceObj = createDeviceTypeItem(name);
+        ListIterator<String> itr = null;
+        itr = entityTypes.listIterator();
+        while (itr.hasNext()) {
+            String name = itr.next();
+            JSONObject deviceObj = createDeviceTypeItem(name);
+            try {
+                restClient.post(deviceTypeAPI, deviceObj.toString());
+                logger.info(String.format("Add DeviceType:%s  POST Status Code: %d", name, restClient.getResponseCode()));
+            } catch(Exception ex) {
+                logger.log(Level.INFO, ex.getMessage(), ex);
+            }
+        }
+
+        // create stats device type
+        String statsDeviceType = config.getStatsDeviceType();
+        JSONObject statsDeviceObj = createDeviceTypeItem(statsDeviceType);
         try {
-            restClient.post(deviceTypeAPI, deviceObj.toString());
-            logger.info(String.format("Add DeviceType POST Status Code: %d", restClient.getResponseCode()));
+            restClient.post(deviceTypeAPI, statsDeviceObj.toString());
+            logger.info(String.format("Add Stats DeviceType: %s  POST Status Code: %d", statsDeviceType, restClient.getResponseCode()));
         } catch(Exception ex) {
             logger.log(Level.INFO, ex.getMessage(), ex);
         }
+
     }
 
     private static JSONObject createDeviceTypeItem(String typeId) {
