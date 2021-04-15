@@ -80,6 +80,7 @@ public class Dimension {
         logger.info(String.format("Add dimension data: Id:%s Type:%s Client:%s", deviceId, deviceType, client));
 
         dimensionObj.put(createDimItem(deviceId, "CLIENT", "LITERAL", client));
+        dimensionObj.put(createDimItem(deviceId, "CONNECTOR", "LITERAL", deviceType));
  
         try {
             logger.fine("DimensionObj: " + dimensionObj.toString());
