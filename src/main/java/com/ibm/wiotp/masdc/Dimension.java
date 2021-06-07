@@ -127,7 +127,7 @@ public class Dimension {
             int dimensionStatus = td.getDimensionStatus();
 
             if (dimensionStatus == 0) {
-                logger.info(String.format("Add dimension: tagpath:%s Type:%s Id:%s", tagpath, deviceType, deviceId));
+                logger.info(String.format("Add dimension: tagpath:%s Type:%s Id:%s TId:%s", tagpath, deviceType, deviceId, tid));
                 dimensionObj.put(createDimItem(deviceId, "CLIENT", "LITERAL", client));
                 dimensionObj.put(createDimItem(deviceId, "TAGPATH", "LITERAL", tagpath));
                 if (connectorTypeStr.equals("device")) { 
