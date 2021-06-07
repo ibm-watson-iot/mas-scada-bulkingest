@@ -102,11 +102,7 @@ public class EntityType {
             // Add Dimension objects in dataItemDtoArray
             dataItemDtoArray.put(createDataDtoObject("CLIENT",  "DIMENSION", "CLIENT", "LITERAL"));
             dataItemDtoArray.put(createDataDtoObject("TAGPATH", "DIMENSION", "TAGPATH", "LITERAL"));
-            if (type.equals("device")) {
-                dataItemDtoArray.put(createDataDtoObject("TAGID", "DIMENSION", "TAGID", "LITERAL"));
-            } else {
-                dataItemDtoArray.put(createDataDtoObject("ALARMID", "DIMENSION", "ALARMID", "LITERAL"));
-            }
+            dataItemDtoArray.put(createDataDtoObject("TAGPATHID", "DIMENSION", "TAGPATHID", "LITERAL"));
             dataItemDtoArray.put(createDataDtoObject("LEVEL_0", "DIMENSION", "LEVEL_0", "LITERAL"));
             dataItemDtoArray.put(createDataDtoObject("LEVEL_1", "DIMENSION", "LEVEL_1", "LITERAL"));
             dataItemDtoArray.put(createDataDtoObject("LEVEL_2", "DIMENSION", "LEVEL_2", "LITERAL"));
