@@ -175,12 +175,6 @@ public class DBConnector {
                 try {
                     rowCount = getSourceMap(sourceDBColumnNames, rs, sourceMap);
                     currentTotalCount = offsetRecord.setProcessedCount(rowCount);
-
-                    // TransformData tData = new TransformData(config, dbCols, offsetRecord, tagpaths, sourceDBColumnNames, rs);
-                    // tData.set();
-                    // sourceMap = tData.get();
-                    // rowCount = tData.getRowCount(); 
-                    // currentTotalCount = offsetRecord.setProcessedCount(rowCount);
                 } catch(Exception e) {
                     logger.log(Level.FINE, e.getMessage(), e);
                 } 
@@ -409,23 +403,27 @@ public class DBConnector {
             sourceMap.get("EVENTTYPE").add(connectorTypeStr);
             sourceMap.get("FORMAT").add("JSON");
             sourceMap.get("LOGICALINTERFACE_ID").add("null");
+            TagData td = null;
+            String idString = "";
+            long id = -1;
     
             for (int i = 1; i <= sourceDBColumnCount; i++) {
                 String colName = sourceDBColumnNames.get(i-1);
                 if (rs.getObject(i) != null) {
                     if (colName.equals("tagpath")) {
-                        String tagpath = rs.getString(i);
-                        String data = UUID.nameUUIDFromBytes(tagpath.getBytes()).toString();
+                        String tagpath = rs.getString(i).toLowerCase();
+                        idString = clientSite + ":" + tagpath;
+                        String dId = UUID.nameUUIDFromBytes(idString.getBytes()).toString();
                         String dType = config.getTypeByTagname(tagpath);
-                        TagData td = new TagData(tagpath, data, dType);
+                        td = new TagData(clientSite, tagpath, dId, dType);
                         try {
-                            tagpaths.putSafe(tagpath, td);
+                            tagpaths.putSafe(idString, td);
                             offsetRecord.setEntityCount(1);
                         } catch(Exception e) {}
                         sourceMap.get("DEVICETYPE").add(dType);
-                        sourceMap.get("DEVICEID").add(data);
-                        String[] tagelems = tagpath.split("/");
+                        sourceMap.get("DEVICEID").add(dId);
                         if (connectorType == Constants.CONNECTOR_DEVICE) {
+                            String[] tagelems = tagpath.split("/");
                             sourceMap.get("EVT_NAME").add(tagelems[tagelems.length-1]);
                         }
 
@@ -442,8 +440,13 @@ public class DBConnector {
                         sourceMap.get("RCV_TIMESTAMP_UTC").add(rs.getObject(i));
                         sourceMap.get("UPDATED_UTC").add(rs.getObject(i));
 
+                    } else if (colName.equals("tagid")) {
+                        id = rs.getLong(i);
+                        sourceMap.get("TAGID").add(id);
+
                     } else if (colName.equals("id")) {
-                        sourceMap.get("ALARMID").add(rs.getLong(i));
+                        id = rs.getLong(i);
+                        sourceMap.get("ALARMID").add(id);
 
                     } else { 
                         sourceMap.get(colName.toUpperCase()).add(rs.getObject(i));
@@ -454,6 +457,10 @@ public class DBConnector {
                     sourceMap.get(colName.toUpperCase()).add(data);
                 }
             }
+            if (idString.contains(clientSite) && td != null) {
+                td.setId(id);
+                tagpaths.put(idString, td);
+            } 
             rowCount += 1;
         }
 

@@ -30,7 +30,7 @@ public class Dimension {
     private static Config config;
     private static CacheAccess<String, TagData> tagpaths;
     private static String client;
-    private static String type;
+    private static String connectorTypeStr;
     private static String name;
     private static List<String> entityTypes;
     private static JSONObject wiotp;
@@ -49,7 +49,7 @@ public class Dimension {
         this.tagpaths = tagpaths;
 
         this.client = config.getClientSite();
-        this.type = config.getConnectorTypeStr();
+        this.connectorTypeStr = config.getConnectorTypeStr();
         this.name = config.getEntityType();
         this.entityTypes = config.getTypes();
         this.wiotp = config.getWiotpConfig();
@@ -122,6 +122,7 @@ public class Dimension {
             String deviceType = td.getDeviceType();
             String dimApi = dimAPIMap.get(deviceType);
             String tagpath = td.getTagpath();
+            String tid = td.getId();
 
             int dimensionStatus = td.getDimensionStatus();
 
@@ -129,7 +130,12 @@ public class Dimension {
                 logger.info(String.format("Add dimension: tagpath:%s Type:%s Id:%s", tagpath, deviceType, deviceId));
                 dimensionObj.put(createDimItem(deviceId, "CLIENT", "LITERAL", client));
                 dimensionObj.put(createDimItem(deviceId, "TAGPATH", "LITERAL", tagpath));
-                batchCount += 2;
+                if (connectorTypeStr.equals("device")) { 
+                    dimensionObj.put(createDimItem(deviceId, "TAGID", "LITERAL", tid));
+                } else {
+                    dimensionObj.put(createDimItem(deviceId, "ALARMID", "LITERAL", tid));
+                }
+                batchCount += 3;
                 td.setDimensionStatus(1);
                 tagpaths.put(id, td);
                 doneTags.add(id);

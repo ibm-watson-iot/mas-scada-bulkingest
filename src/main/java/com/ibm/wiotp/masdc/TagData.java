@@ -13,7 +13,9 @@ import java.io.Serializable;
 
 public class TagData implements Serializable {
 
+    private String siteName;
     private String tagpath;
+    private String id;
     private String deviceId;
     private String deviceType;
     private int deviceStatus = 0;    // 0-NotCreatedYet 1-Created
@@ -24,14 +26,37 @@ public class TagData implements Serializable {
         this.deviceId = deviceId;
     }
 
-    public TagData(String tagpath, String deviceId, String deviceType) {
+    public TagData(String siteName, String tagpath, String deviceId) {
+        this.siteName = siteName;
+        this.tagpath = tagpath;
+        this.deviceId = deviceId;
+    }
+
+    public TagData(String siteName, String tagpath, String deviceId, String deviceType) {
+        this.siteName = siteName;
         this.tagpath = tagpath;
         this.deviceId = deviceId;
         this.deviceType = deviceType;
     }
 
+    public void setSiteName(String siteName) {
+        this.siteName = siteName;
+    }
+
+    public String getSiteName() {
+        return this.siteName;
+    }
+
     public String getTagpath() {
         return this.tagpath;
+    }
+
+    public String getId() {
+        return this.id;
+    }
+
+    public void setId(long tid) {
+        this.id = String.valueOf(tid);
     }
 
     public String getDeviceId() {

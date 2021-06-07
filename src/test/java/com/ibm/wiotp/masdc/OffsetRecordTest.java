@@ -128,7 +128,7 @@ public class OffsetRecordTest {
         assertEquals(2020, year);
         assertEquals(5, month);
 
-        for (int i=6; i<18; i++) {
+        for (int i=6; i<19; i++) {
             int nowait = offRec.updateOffsetFile(startTimeSecs, endTimeSecs, year, month, Constants.EXTRACT_STATUS_NO_TABLE);
             String newDateStr;
             int newYear = 2020;

@@ -90,7 +90,6 @@ public class Device {
 
             if (deviceStatus == 0) {
                 logger.info("Add device: " + deviceId + "  type: " + deviceType);
-                // deviceObj.put(createDeviceItem(name, deviceId, token));
                 deviceObj.put(createDeviceItem(deviceType, deviceId, token));
                 td.setDeviceStatus(1);
                 tagpaths.put(id, td);

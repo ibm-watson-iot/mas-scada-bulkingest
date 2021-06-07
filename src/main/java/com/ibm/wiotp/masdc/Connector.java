@@ -124,21 +124,8 @@ public class Connector {
 
             // Initialize required objects
             OffsetRecord offsetRecord = new OffsetRecord(config, false);
-            String cacheNameOld = config.getEntityType() + ".tags";
-            String cacheNameNew = config.getClientSite() + "_" + configuredConnectorType + "_tags_v" + tagMapVersion;
-            String oldCacheFilePathData = dataDir + "/volume/data/tagcache/" + cacheNameOld + ".data";
-            String oldCacheFilePathKey = dataDir + "/volume/data/tagcache/" + cacheNameOld + ".key";
-            if ( checkFileExists(oldCacheFilePathData) == 1) {
-                UpdateTagData utd = new UpdateTagData(config, cacheNameOld, cacheNameNew);
-                utd.process();
-                // delete old cache file
-                File f = new File(oldCacheFilePathData);
-                f.delete();
-                f = new File(oldCacheFilePathKey);
-                f.delete();
-            }
-
-            CacheAccess<String, TagData> tagpaths = JCS.getInstance(cacheNameNew);
+            String cacheName = config.getClientSite() + "_" + configuredConnectorType + "_tags_v" + tagMapVersion;
+            CacheAccess<String, TagData> tagpaths = JCS.getInstance(cacheName);
             Set<String> tagList = tagpaths.getCacheControl().getKeySet();
             long totalDevices = tagList.size();
             logger.info(String.format("Total tags in cache: %d", totalDevices));
