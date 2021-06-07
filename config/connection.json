@@ -1,8 +1,9 @@
 {
     "clientSite": "ABCCorp",
     "startDate": "2020-12-01 00:00:00",
-    "fetchInterval": 30,
+    "fetchInterval": 120,
     "fetchIntervalHistorical": 21600,
+    "runMode": 0,
     "wiotp": {
         "orgId": "xxxxxx",
 	"key": "a-xxxxxx-95txn93it8",
@@ -16,7 +17,7 @@
         "port": "50001",
         "schema": "BLUADMIN",
         "user": "bluadmin",
-        "password": "w08Y4FXmd_eFE47gsI8Ttcx9JIlHk"
+        "password": "xxxxxxxxx_eFE47gsI8Ttcx9JIlHk"
     },
     "ignition": {
         "dbtype": "mysql",
@@ -25,10 +26,9 @@
         "schema": "ignition",
         "database": "ignition",
         "user": "root",
-        "password": "root"
+        "password": "xxxx"
     },
     "deviceTypes": [
-        {"ABC_CA3_TYPE": "ca3/*"},
         {"ABC_CA3E_TYPE": "ca3e/*"},
         {"ABC_CA5_TYPE": "ca5/*"},
         {"ABC_Default_Type": ".*"}
