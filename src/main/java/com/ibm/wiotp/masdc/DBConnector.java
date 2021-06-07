@@ -405,7 +405,7 @@ public class DBConnector {
             sourceMap.get("LOGICALINTERFACE_ID").add("null");
             TagData td = null;
             String idString = "";
-            long id = -1;
+            long tid = -1;
     
             for (int i = 1; i <= sourceDBColumnCount; i++) {
                 String colName = sourceDBColumnNames.get(i-1);
@@ -441,12 +441,11 @@ public class DBConnector {
                         sourceMap.get("UPDATED_UTC").add(rs.getObject(i));
 
                     } else if (colName.equals("tagid")) {
-                        id = rs.getLong(i);
-                        sourceMap.get("TAGID").add(id);
+                        tid = rs.getLong(i);
+                        sourceMap.get("TAGID").add(tid);
 
                     } else if (colName.equals("id")) {
-                        id = rs.getLong(i);
-                        sourceMap.get("ALARMID").add(id);
+                        sourceMap.get("ALARMID").add(rs.getLong(i));
 
                     } else { 
                         sourceMap.get(colName.toUpperCase()).add(rs.getObject(i));
@@ -457,8 +456,8 @@ public class DBConnector {
                     sourceMap.get(colName.toUpperCase()).add(data);
                 }
             }
-            if (idString.contains(clientSite) && td != null) {
-                td.setId(id);
+            if (tid > 0 && idString.contains(clientSite) && td != null) {
+                td.setId(tid);
                 tagpaths.put(idString, td);
             } 
             rowCount += 1;

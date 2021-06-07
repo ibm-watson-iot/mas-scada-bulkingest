@@ -130,8 +130,11 @@ public class Dimension {
                 logger.info(String.format("Add dimension: tagpath:%s Type:%s Id:%s TId:%s", tagpath, deviceType, deviceId, tid));
                 dimensionObj.put(createDimItem(deviceId, "CLIENT", "LITERAL", client));
                 dimensionObj.put(createDimItem(deviceId, "TAGPATH", "LITERAL", tagpath));
-                dimensionObj.put(createDimItem(deviceId, "TAGPATHID", "LITERAL", tid));
-                batchCount += 3;
+                batchCount += 2;
+                if (connectorTypeStr.equals("device")) {
+                    dimensionObj.put(createDimItem(deviceId, "TID", "LITERAL", tid));
+                    batchCount += 1;
+                }
                 td.setDimensionStatus(1);
                 tagpaths.put(id, td);
                 doneTags.add(id);
