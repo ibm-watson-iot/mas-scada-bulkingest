@@ -143,6 +143,8 @@ public class DBConnector {
                         } else {
                             logger.info("Extract: SQLException: " + qex.getMessage());
                         }
+                    } else {
+                        logger.info("Extract: Exception: " + qex.getMessage());
                     }
                 }
 
@@ -378,7 +380,6 @@ public class DBConnector {
                 sourceDBConnState = 1;
             } catch(Exception e) {
                 logger.log(Level.INFO, e.getMessage(), e);
-                logger.info("Retry source DB connection");
                 conn = null;
                 sourceDBConnState = 0;
             }
@@ -400,32 +401,19 @@ public class DBConnector {
         }
 
         while (rs.next()) {
+
+            String tagpath = "";
+            long tid = 0;
+     
             sourceMap.get("EVENTTYPE").add(connectorTypeStr);
             sourceMap.get("FORMAT").add("JSON");
             sourceMap.get("LOGICALINTERFACE_ID").add("null");
-            TagData td = null;
-            String idString = "";
-            long tid = -1;
-    
+
             for (int i = 1; i <= sourceDBColumnCount; i++) {
                 String colName = sourceDBColumnNames.get(i-1);
                 if (rs.getObject(i) != null) {
                     if (colName.equals("tagpath")) {
-                        String tagpath = rs.getString(i).toLowerCase();
-                        idString = clientSite + ":" + tagpath;
-                        String dId = UUID.nameUUIDFromBytes(idString.getBytes()).toString();
-                        String dType = config.getTypeByTagname(tagpath);
-                        td = new TagData(clientSite, tagpath, dId, dType);
-                        try {
-                            tagpaths.putSafe(idString, td);
-                            offsetRecord.setEntityCount(1);
-                        } catch(Exception e) {}
-                        sourceMap.get("DEVICETYPE").add(dType);
-                        sourceMap.get("DEVICEID").add(dId);
-                        if (connectorType == Constants.CONNECTOR_DEVICE) {
-                            String[] tagelems = tagpath.split("/");
-                            sourceMap.get("EVT_NAME").add(tagelems[tagelems.length-1]);
-                        }
+                        tagpath = rs.getString(i).toLowerCase();
 
                     } else if (colName.equals("t_stamp")) {
                         long lastTimeStamp = rs.getLong(i);
@@ -456,10 +444,36 @@ public class DBConnector {
                     sourceMap.get(colName.toUpperCase()).add(data);
                 }
             }
-            if (tid > 0 && idString.contains(clientSite) && td != null) {
-                td.setId(tid);
-                tagpaths.put(idString, td);
-            } 
+
+
+            TagData td = null;
+            String idString = clientSite + ":" + tagpath;
+            String dId = "";
+            String dType = "";
+
+            try {
+                td = tagpaths.get(idString);
+                dId = td.getDeviceId();
+                dType = td.getDeviceType();
+            } catch(Exception e) {}
+            if (td == null) {
+                dId = UUID.nameUUIDFromBytes(idString.getBytes()).toString();
+                dType = config.getTypeByTagname(tagpath);
+                td = new TagData(clientSite, tagpath, dId, dType);
+                if (connectorType == Constants.CONNECTOR_DEVICE) {
+                    td.setId(tid);
+                }
+                try {
+                    tagpaths.putSafe(idString, td);
+                    offsetRecord.setEntityCount(1);
+                } catch(Exception e) {}
+            }
+            sourceMap.get("DEVICEID").add(dId);
+            sourceMap.get("DEVICETYPE").add(dType);
+            if (connectorType == Constants.CONNECTOR_DEVICE) {
+                String[] tagelems = tagpath.split("/");
+                sourceMap.get("EVT_NAME").add(tagelems[tagelems.length-1]);
+            }
             rowCount += 1;
         }
 
@@ -485,7 +499,6 @@ public class DBConnector {
                 destDBConnState = 1;
             } catch(Exception e) {
                 logger.log(Level.INFO, e.getMessage(), e);
-                logger.info("Retry destination DB connection");
                 conn = null;
                 sourceDBConnState = 0;
             }
@@ -500,5 +513,104 @@ public class DBConnector {
         return conn;
     }
 
+    // extract raw data and store in csv file
+    public static void extractRawData(String tableName, String csvFilePath) throws Exception {
+
+        FileWriter fw = null;
+        Connection conn = null;
+        Statement stmt = null;
+        int chunkSize = 10000;
+        int startRecord = 0;
+        String querySql = "";
+
+        try {
+            logger.info("Connecting to source to extract data for " + tableName);
+
+            logger.info("Dump extracted data to: " + csvFilePath);
+            fw = new FileWriter(csvFilePath);
+
+            int headerWritten = 0;
+            while ( true ) {
+                logger.info(String.format("TableName:%s StartRecord:%d ChunkSize:%d", tableName, startRecord, chunkSize));
+                if (tableName.equals("sqlt_data")) {
+                    querySql = String.format("SELECT * FROM sqlt_data_1_2021_05 LIMIT %d, %d", startRecord, chunkSize);
+                } else {
+                    querySql = String.format("SELECT * FROM sqlth_te LIMIT %d, %d", startRecord, chunkSize);
+                }
+
+                conn = getSourceConnection(type);
+                stmt = conn.createStatement();
+
+                ResultSet rs = null;
+                int gotData = 1;
+                try {
+                    rs = stmt.executeQuery(querySql);
+                } catch (Exception qex) {
+                    gotData = 0;
+                    if (qex instanceof SQLException) {
+                        int errCode = ((SQLException)qex).getErrorCode();
+                        if (errCode == 1146) {
+                            System.out.println("Table not found in source"); 
+                        } else {
+                            System.out.println("SQLException: " + qex.getMessage());
+                        }
+                    }
+                }
+
+                if (gotData == 0) {
+                    resetDBConnection(stmt, rs, conn);
+                    break;
+                }
+
+
+                // Get column count
+                final ResultSetMetaData rsmd = rs.getMetaData();
+                int columnCount = rsmd.getColumnCount();
+    
+                // Open csv file and write column headers
+                if (headerWritten == 0) {
+                    for (int i = 1; i <= columnCount; i++) {
+                        fw.append(rs.getMetaData().getColumnName(i));
+                        if ( i < columnCount ) fw.append(",");
+                    }
+                    fw.append(System.getProperty("line.separator"));
+                    headerWritten = 1;
+                }
+    
+                // For each row, loop thru the number of columns and write to the csv file
+                int rowCount = 0;
+                while (rs.next()) {
+                    for (int i = 1; i <= columnCount; i++) {
+                        if (rs.getObject(i) != null) {
+                            fw.append(rs.getString(i).replaceAll(",", " "));
+                        } else {
+                            String data = "null";
+                            fw.append(data);
+                        }
+                        if ( i < columnCount ) fw.append(",");
+                    }
+                    fw.append(System.getProperty("line.separator"));
+                    rowCount += 1;
+                }
+                fw.flush();
+    
+                String msg1 = String.format("Data extracted: columns=%d  rows=%d\n", columnCount, rowCount);
+                logger.info(msg1);
+
+                if (rs != null) rs.close();
+                if (stmt != null) stmt.close();
+                if (conn != null) conn.close();
+
+                startRecord += chunkSize;
+ 
+            }
+        
+            fw.close();
+            logger.info("Sample Data extraction cycle is complete.");
+					
+        } catch (Exception ex) {
+            throw ex;
+        }
+    }
 }
 

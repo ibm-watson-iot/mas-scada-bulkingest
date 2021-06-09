@@ -420,11 +420,16 @@ public class Config {
         String sourcePort = ignitionDB.getString("port");
         String sourceDatabase = ignitionDB.getString("database");
         String sourceSchema = ignitionDB.getString("schema");
+        String serverTimezone = ignitionDB.optString("serverTimezone", "");
         sourceDbUser = ignitionDB.getString("user");
         sourceDbPass = ignitionDB.getString("password");
 
         if ( dbType.compareTo("mysql") == 0 ) {
-            sourceDbUrl = "jdbc:mysql://" + sourceHost + "/" + sourceSchema;
+            if (serverTimezone.equals("")) {
+                sourceDbUrl = "jdbc:mysql://" + sourceHost + "/" + sourceSchema;
+            } else {
+                sourceDbUrl = "jdbc:mysql://" + sourceHost + "/" + sourceSchema + "?serverTimezone=" + serverTimezone;
+            }
         } else {
             sourceDbUrl = "jdbc:sqlserver://"+sourceHost+":"+sourcePort+";databaseName="+sourceDatabase+";user="+
                     sourceDbUser+";password="+sourceDbPass;
