@@ -33,7 +33,8 @@ public class RestClient {
     private HttpClient client = null;
     private HttpRequest request = null;
     private HttpResponse<Path> responseFile = null;
-    private HttpResponse<Void> responseNone = null;
+    private HttpResponse<Void> response = null;
+    private HttpResponse<String> getResponse = null;
     private String outFile = "";
 
     public RestClient(String baseUri, int authType, String key, String token, String outFile) {
@@ -70,38 +71,44 @@ public class RestClient {
         if (outFile != null && !outFile.isEmpty()) {
             responseFile = client.send(request, HttpResponse.BodyHandlers.ofFile(Paths.get(outFile)));
         } else {
-            responseNone = client.send(request, HttpResponse.BodyHandlers.discarding());
+            response = client.send(request, HttpResponse.BodyHandlers.discarding());
         }
     }
 
     public void get(String method) throws IOException, InterruptedException {
         String getEndpoint = this.baseUri + method;
         logger.info("GET Endpoint: " + getEndpoint);
-        if (authType == 1) {
+        if (authType == Constants.AUTH_BASIC) {
+            String encodedAuth = Base64.getEncoder()
+                .encodeToString((this.key + ":" + this.token).getBytes(StandardCharsets.UTF_8));
+
             request = HttpRequest.newBuilder()
                 .uri(URI.create(getEndpoint))
-                .header("Content-Type", "application/json")
+                .header("Authorization", "Basic " + encodedAuth)
                 .build();
         } else {
             request = HttpRequest.newBuilder()
                 .uri(URI.create(getEndpoint))
-                .header("Content-Type", "application/json")
                 .header("x-api-key", key)
                 .header("x-api-token", token)
                 .build();
         }
-        if (outFile != null && !outFile.isEmpty()) {
-            responseFile = client.send(request, HttpResponse.BodyHandlers.ofFile(Paths.get(outFile)));
-        } else {
-            responseNone = client.send(request, HttpResponse.BodyHandlers.discarding());
-        }
+        getResponse = client.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
-    public int getResponseCode() {
-        if (outFile != null && !outFile.isEmpty()) {
-            return(this.responseFile.statusCode());
+    public int getResponseCode(String method) {
+        if (method.equals("POST")) {
+            if (outFile != null && !outFile.isEmpty()) {
+                return(this.responseFile.statusCode());
+            }
+            return(this.response.statusCode());
         }
-        return(this.responseNone.statusCode());
+     
+        return(this.getResponse.statusCode());
+    }
+
+    public String getResponseBody() {
+        return(this.getResponse.body());
     }
 
 }

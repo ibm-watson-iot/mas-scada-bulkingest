@@ -22,7 +22,6 @@ public class DeviceType {
     private static String client;
     private static int    type;
     private static List<String> entityTypes;
-    // private static String name;
     private static JSONObject wiotp;
     private static String baseUrl;
     private static String deviceTypeAPI;
@@ -38,7 +37,6 @@ public class DeviceType {
 
         this.client = config.getClientSite();
         this.type = config.getConnectorType();
-        // this.name = config.getEntityType();
         this.entityTypes = config.getTypes();
         this.wiotp = config.getWiotpConfig();
         this.baseUrl = "https://" + wiotp.getString("orgId") + ".internetofthings.ibmcloud.com/";
@@ -54,7 +52,7 @@ public class DeviceType {
             JSONObject deviceObj = createDeviceTypeItem(name);
             try {
                 restClient.post(deviceTypeAPI, deviceObj.toString());
-                logger.info(String.format("Add DeviceType:%s  POST Status Code: %d", name, restClient.getResponseCode()));
+                logger.info(String.format("Add DeviceType:%s  POST Status Code: %d", name, restClient.getResponseCode("POST")));
             } catch(Exception ex) {
                 logger.log(Level.INFO, ex.getMessage(), ex);
             }
@@ -65,7 +63,7 @@ public class DeviceType {
         JSONObject statsDeviceObj = createDeviceTypeItem(statsDeviceType);
         try {
             restClient.post(deviceTypeAPI, statsDeviceObj.toString());
-            logger.info(String.format("Add Stats DeviceType: %s  POST Status Code: %d", statsDeviceType, restClient.getResponseCode()));
+            logger.info(String.format("Add Stats DeviceType: %s  POST Status Code: %d", statsDeviceType, restClient.getResponseCode("POST")));
         } catch(Exception ex) {
             logger.log(Level.INFO, ex.getMessage(), ex);
         }
@@ -83,5 +81,6 @@ public class DeviceType {
         devItem.put("metadata", metadata);
         return devItem;
     }
+
 }
 

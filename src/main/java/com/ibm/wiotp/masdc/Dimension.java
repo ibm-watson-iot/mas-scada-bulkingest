@@ -85,7 +85,7 @@ public class Dimension {
         try {
             logger.fine("DimensionObj: " + dimensionObj.toString());
             restClient.post(statsDimAPI, dimensionObj.toString());
-            logger.info(String.format("Dimension POST Status Code: %d", restClient.getResponseCode()));
+            logger.info(String.format("Dimension POST Status Code: %d", restClient.getResponseCode("POST")));
         } catch(Exception ex) {
             logger.log(Level.FINE, ex.getMessage(), ex);
         }
@@ -161,7 +161,7 @@ public class Dimension {
                         // invoke API to create dimensional data
                         logger.fine("DimensionObj:   " + dimensionObj.toString());
                         restClient.post(dimApi, dimensionObj.toString());
-                        logger.info(String.format("Dimension POST Status Code: %d", restClient.getResponseCode()));
+                        logger.info(String.format("Dimension POST Status Code: %d", restClient.getResponseCode("POST")));
                     } catch(Exception ex) {
                         logger.info("Exception message: " + ex.getMessage());
                         logger.log(Level.FINE, ex.getMessage(), ex);

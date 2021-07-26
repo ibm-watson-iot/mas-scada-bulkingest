@@ -53,6 +53,7 @@ public class DBConnector {
     private static int sourceDBColumnCount = 0;
     private static String clientSite;
     private static int dataPoints;
+    private static Device connectorStatDevice;
 
     public DBConnector(Config config, OffsetRecord offsetRecord, CacheAccess<String, TagData> tagpaths) throws Exception {
         if (config == null || offsetRecord == null) {
@@ -79,6 +80,8 @@ public class DBConnector {
         this.dbHelper = new DBHelper(config);
         dbCols = dbHelper.getMonitorDBCols();
         DB_URL = config.getIgnitionDBUrl();
+
+        connectorStatDevice = new Device(config, tagpaths);
     }    
 
 
@@ -102,9 +105,19 @@ public class DBConnector {
 
             while ( true ) {
 
-                // check update flag is set wait for 60 seconds and check again
+                // Check connector stop flag, if set wait fo 60 seconds and check again
+                JSONObject statDeviceMetadata = connectorStatDevice.getDeviceMetataData(statsDeviceType, statsDeviceId);
+                int stopFlag = statDeviceMetadata.optInt("stopFlag", 0);
+                if (stopFlag == 1) {
+                    // System.out.println("Connector stop flag is set. Wait for 60 seconds and then check again.");
+                    logger.info("Connector stop flag is set. Wait for 60 seconds and then check again.");
+                    Thread.sleep(60000);
+                    continue;
+                }
+
+                // check update flag is set wait for 10 seconds and return
                 if (config.getUpdateFlag() == 1) {
-                    logger.info("Update flag is set. Wait for 60 seconds for process to be stopped.");
+                    logger.info("Update flag is set. Wait for 10 seconds for process to be stopped.");
                     Thread.sleep(10000);
                     break;
                 }
@@ -169,11 +182,11 @@ public class DBConnector {
                     resetDBConnection(stmt, rs, conn);
                     continue;
                 }
-    
+   
+                // Prepare extracted data for upload: create hash map of extracted data 
                 long rowCount = 0;
                 long currentTotalCount = 0;
                 Map<String, List<Object>> sourceMap = new HashMap<String, List<Object>>();
-                // Map<String, List<Object>> sourceMap = null;
                 try {
                     rowCount = getSourceMap(sourceDBColumnNames, rs, sourceMap);
                     currentTotalCount = offsetRecord.setProcessedCount(rowCount);
@@ -200,6 +213,8 @@ public class DBConnector {
                 logger.info(String.format("Data extracted: cols=%d rows=%d currCount=%d entities=%d\n", 
                     sourceDBColumnCount, rowCount, currentTotalCount, offsetRecord.getEntityCount()));
 
+
+                // Upload data
                 int nuploaded = 0;
                 if (rowCount > 0) {
                     ListIterator<String> itr = null;
@@ -455,6 +470,7 @@ public class DBConnector {
                 td = tagpaths.get(idString);
                 dId = td.getDeviceId();
                 dType = td.getDeviceType();
+                logger.info(String.format("OLD: dType=%s idStr=%s dId=%s", dType, tagpath, dId));
             } catch(Exception e) {}
             if (td == null) {
                 dId = UUID.nameUUIDFromBytes(idString.getBytes()).toString();
@@ -467,6 +483,7 @@ public class DBConnector {
                     tagpaths.putSafe(idString, td);
                     offsetRecord.setEntityCount(1);
                 } catch(Exception e) {}
+                logger.info(String.format("NEW: dType=%s idStr=%s dId=%s", dType, tagpath, dId));
             }
             sourceMap.get("DEVICEID").add(dId);
             sourceMap.get("DEVICETYPE").add(dType);

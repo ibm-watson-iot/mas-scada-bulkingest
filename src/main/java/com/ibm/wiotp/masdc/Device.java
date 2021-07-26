@@ -33,12 +33,13 @@ public class Device {
     private static String name;
     private static JSONObject wiotp;
     private static String baseUrl;
+    private static String bulkDeviceAPI;
     private static String deviceAPI;
     private static RestClient restClient;
     private static String token;
 
     public Device(Config config, CacheAccess<String, TagData> tagpaths) {
-        if (config == null || tagpaths == null) {
+        if (config == null) {
             throw new NullPointerException("config/tagpaths parameter cannot be null");
         }
 
@@ -51,12 +52,61 @@ public class Device {
         this.wiotp = config.getWiotpConfig();
         this.token = wiotp.getString("token");
         this.baseUrl = "https://" + wiotp.getString("orgId") + ".internetofthings.ibmcloud.com/";
-        this.deviceAPI = "api/v0002/bulk/devices/add";
+        this.bulkDeviceAPI = "api/v0002/bulk/devices/add";
+        this.deviceAPI = "api/v0002/device/types";
         this.restClient = new RestClient(baseUrl, 1, wiotp.getString("key"), wiotp.getString("token"), config.getPostResponseFile());
     }
 
+    // Should be called only one time during the life of the connector process
     public void start() {
         startDeviceThread();
+    }
+
+    public static JSONObject getDeviceMetataData(String typeId, String deviceId) {
+        String getAPI = deviceAPI + "/" + typeId + "/devices/" + deviceId;
+        JSONObject metadata = new JSONObject();
+        try {
+            restClient.get(getAPI);
+            int responseCode = restClient.getResponseCode("GET");
+            logger.info(String.format("Get Metadata of Device:%s  GET Status Code: %d", deviceId, responseCode));
+            if (responseCode == 200) {
+                JSONObject typeConfig = new JSONObject(restClient.getResponseBody());
+                metadata = typeConfig.getJSONObject("metadata");
+            }
+        } catch(Exception ex) {
+            logger.log(Level.INFO, ex.getMessage(), ex);
+        }
+        return metadata;
+    }
+
+    private static void createStatsDevice() {
+
+        boolean done = true;
+        JSONArray deviceObj = new JSONArray();
+        String deviceId = config.getStatsDeviceId();
+        String deviceType = config.getStatsDeviceType();
+
+        logger.info("Add device: " + deviceId + "  type: " + deviceType);
+        deviceObj.put(createDeviceItem(deviceType, deviceId, token, 1));
+
+        for (int retry=0; retry<5; retry++) {
+            done = true;
+            try {
+                restClient.post(bulkDeviceAPI, deviceObj.toString());
+                logger.info(String.format("Add Device POST Status Code: %d", restClient.getResponseCode("POST")));
+            } catch(Exception ex) {
+                logger.info("Exception message: " + ex.getMessage());
+                logger.log(Level.FINE, ex.getMessage(), ex);
+                done = false;
+            }
+            if (done) break;
+            try {
+                Thread.sleep(5000);
+            } catch(Exception e) {}
+            logger.info(String.format("Retry REST call: retry count=%d", retry));
+        }
+
+        logger.info("Connector stats device is added.");
     }
 
     private static void processDevices() {
@@ -88,9 +138,13 @@ public class Device {
             String deviceType = td.getDeviceType();
             int deviceStatus = td.getDeviceStatus();
 
+            if (deviceType.equals("")) {
+                continue;
+            }
+
             if (deviceStatus == 0) {
                 logger.info("Add device: " + deviceId + "  type: " + deviceType);
-                deviceObj.put(createDeviceItem(deviceType, deviceId, token));
+                deviceObj.put(createDeviceItem(deviceType, deviceId, token, 0));
                 td.setDeviceStatus(1);
                 tagpaths.put(id, td);
                 batchCount += 1;
@@ -106,8 +160,8 @@ public class Device {
                     done = true;
                     if (batchCount == 1) break;
                     try {
-                        restClient.post(deviceAPI, deviceObj.toString());
-                        logger.info(String.format("Add Device POST Status Code: %d", restClient.getResponseCode()));
+                        restClient.post(bulkDeviceAPI, deviceObj.toString());
+                        logger.info(String.format("Add Device POST Status Code: %d", restClient.getResponseCode("POST")));
                     } catch(Exception ex) {
                         logger.info("Exception message: " + ex.getMessage());
                         logger.log(Level.FINE, ex.getMessage(), ex);
@@ -140,7 +194,7 @@ public class Device {
         logger.info(String.format("Total=%d New=%d AlreadyRegistered=%d", totalDevicesInCache, devicesRegistered, alreadyRegistered));
     }
 
-    private static JSONObject createDeviceItem(String typeId, String deviceId, String token) {
+    private static JSONObject createDeviceItem(String typeId, String deviceId, String token, int isConnectorDevice) {
         JSONObject devItem = new JSONObject();
         devItem.put("typeId", typeId);
         devItem.put("deviceId", deviceId);
@@ -150,14 +204,21 @@ public class Device {
         JSONObject metadata = new JSONObject();
         devItem.put("deviceInfo", deviceInfo);
         devItem.put("location", location);
-        devItem.put("metadata", metadata);
+        if (isConnectorDevice == 1) {
+            metadata.put("stopFlag", 0);
+            devItem.put("metadata", metadata);
+        } else {
+            devItem.put("metadata", metadata);
+        }
         return devItem;
     }
 
     // Thread to create devices
-     private static void startDeviceThread() {
+    private static void startDeviceThread() {
         Runnable thread = new Runnable() {
             public void run() {
+                // create connector stats device
+                createStatsDevice();
                 while(true) {
                     logger.info("Start add devices cycle");
                     if (config.getUpdateFlag() == 1) break;

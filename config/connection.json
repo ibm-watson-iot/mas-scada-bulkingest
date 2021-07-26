@@ -28,13 +28,21 @@
         "user": "root",
         "password": "xxxx"
     },
-    "deviceTypes": [
-        {"ABC_CA3E_TYPE": "ca3e/*"},
-        {"ABC_CA5_TYPE": "ca5/*"},
-        {"ABC_Default_Type": ".*"}
-    ],
-    "alarmTypes": [
-        {"ABC_Alarm_Type": ".*"}
-    ]
+    "deviceTypes": {
+        "useDefaultDeviceType": 1,
+        "groupBy": "patterns",
+        "patterns": [
+            {"IBM_TYPE_01": "oakville/.*"},
+            {"IBM_TYPE_02": "rutherford/.*"},
+            {"IBM_Default_Type": ".*"}
+        ]
+    },
+    "alarmTypes": {
+        "useDefaultAlarmType": 1,
+        "groupBy": "patterns",
+        "patterns": [
+            {"IBM_Alarm_Type": ".*"}
+        ]
+    }
 }
 

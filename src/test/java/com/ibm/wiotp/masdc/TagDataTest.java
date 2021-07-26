@@ -68,6 +68,7 @@ public class TagDataTest {
         connConfig.put("ignition", ignition); 
 
         JSONObject deviceTypes = new JSONObject();
+        deviceTypes.put("useDefaultDeviceType", 0);
         JSONArray patterns = new JSONArray();
         JSONObject typePattern = new JSONObject();
         typePattern.put("DefaultDeviceType", ".*");
@@ -77,6 +78,7 @@ public class TagDataTest {
         connConfig.put("deviceTypes", deviceTypes);
 
         JSONObject alarmTypes = new JSONObject();
+        alarmTypes.put("useDefaultAlarmType", 1);
         patterns = new JSONArray();
         JSONObject pattern = new JSONObject();
         pattern.put("DefaultAlarmType", ".*");

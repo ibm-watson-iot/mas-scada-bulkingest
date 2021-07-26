@@ -36,6 +36,8 @@ public class Config {
     private static JSONObject connConfig;
     private static JSONArray deviceTypes;
     private static JSONArray alarmTypes;
+    private static int useDefaultDeviceType;
+    private static int useDefaultAlarmType;
     private static int deviceFolders;
     private static int alarmFolders;
     private static String deviceTypePrifix;
@@ -106,12 +108,15 @@ public class Config {
 
         JSONObject deviceObj = connConfig.getJSONObject("deviceTypes");
         JSONObject alarmObj =  connConfig.getJSONObject("alarmTypes");
+        useDefaultDeviceType = deviceObj.optInt("useDefaultDeviceType", 1);
         String groupBy = deviceObj.optString("groupBy", "patterns");
         if (groupBy.equals("patterns")) {
             deviceTypes = deviceObj.getJSONArray("patterns");
         } else {
             deviceFolders = deviceObj.optInt("useFolders", 0);            
         }
+
+        useDefaultAlarmType = alarmObj.optInt("useDefaultAlarmType", 1);
         groupBy = alarmObj.optString("groupBy", "patterns");
         if (groupBy.equals("patterns")) {
             alarmTypes = alarmObj.getJSONArray("patterns");
@@ -287,8 +292,16 @@ public class Config {
         return deviceTypes;
     }
 
+    public int getUseDefaultDeviceType() {
+        return useDefaultDeviceType;
+    }
+
     public JSONArray getAlarmTypes() {
         return alarmTypes;
+    }
+
+    public int getUseDefaultAlarmType() {
+        return useDefaultAlarmType;
     }
 
     public String getDeviceType() {

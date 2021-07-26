@@ -62,6 +62,7 @@ public class EntityType {
         itr = entityTypes.listIterator();
         while (itr.hasNext()) {
             String entityTypeName = itr.next();
+            if (entityTypeName.equals("")) continue;
             logger.info("Create entity: " + entityTypeName);
             String metricTableName = "IOT_" + entityTypeName;
             String dimensionTableName = metricTableName + "_CTG";
@@ -119,7 +120,7 @@ public class EntityType {
             entityObj.put(entityTypeObj);
 
             restClient.post(entityAPI, entityObj.toString());
-            logger.info(String.format("EntityType POST Status Code: %d", restClient.getResponseCode()));
+            logger.info(String.format("EntityType POST Status Code: %d", restClient.getResponseCode("POST")));
 
             // create monitor table
             // MonitorTable monTable = new MonitorTable(config);
@@ -175,7 +176,7 @@ public class EntityType {
         entityObj.put(entityTypeObj);
 
         restClient.post(entityAPI, entityObj.toString());
-        logger.info(String.format("EntityType POST Status Code: %d", restClient.getResponseCode()));
+        logger.info(String.format("EntityType POST Status Code: %d", restClient.getResponseCode("POST")));
 
         // create monitor table
         String ddlStr = monTable.getConnectorStatsDDL(entityTypeName);

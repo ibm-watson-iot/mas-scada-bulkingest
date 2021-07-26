@@ -27,27 +27,35 @@ public class ParseTagname {
   
     int tagMapCount = 0;
     String defaultType = "";
+    int useDefaultType = 1;
     List<Pattern> patterns = new ArrayList<>();
     List<String> entityTypes = new ArrayList<String>();
 
     public ParseTagname(Config config) {
         JSONArray types;
+        int useDefaultType = 1;
         if (config.getConnectorType() == Constants.CONNECTOR_DEVICE) {
             types = config.getDeviceTypes();
+            useDefaultType = config.getUseDefaultDeviceType();
         } else {
             types = config.getAlarmTypes();
+            useDefaultType = config.getUseDefaultAlarmType();
         }
 
         tagMapCount = types.length();
 
+        logger.info(String.format("tagMapCount:%d useDefaultType:%d", tagMapCount, useDefaultType));
+
         for (int i = 0; i < tagMapCount; i++) {
             JSONObject obj = types.getJSONObject(i);
             Iterator<String> keys = obj.keys();
-            String typeStr = keys.next(); 
+            String typeStr = keys.next();
             patterns.add(i, Pattern.compile(obj.optString(typeStr)));
             entityTypes.add(i, typeStr);
             if (i == tagMapCount-1) {
-                defaultType = typeStr;
+                if (useDefaultType == 1) {
+                    defaultType = typeStr;
+                }
             }
         }
 
@@ -56,10 +64,6 @@ public class ParseTagname {
     public String getType(String tagName) {
         int index = 0;
         String type = "";
-
-        if (tagMapCount == 1) {
-            return defaultType;
-        }
 
         for (Pattern pattern: patterns) {
             Matcher m = pattern.matcher(tagName);
