@@ -55,10 +55,15 @@ public class OffsetRecord {
         this.startDate = config.getStartDate();
 
         String dataDir = config.getDataDir();
+        String etype = config.getEntityType();
+        if (etype.equals("")) {
+            etype = config.getClientSite() + "_" + config.getConnectorTypeStr();
+        }
+
         if (dataDir.equals("")) {
-            offsetFile = config.getEntityType() + ".offset";
+            offsetFile = etype + ".offset";
         } else {
-            offsetFile = config.getDataDir() + "/volume/data/" + config.getEntityType() + ".offset";
+            offsetFile = config.getDataDir() + "/volume/data/" + etype + ".offset";
         }
         offsetInterval = config.getFetchInterval();
         if (offsetInterval > 120) offsetInterval = 120;

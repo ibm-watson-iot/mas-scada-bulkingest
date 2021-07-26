@@ -470,7 +470,7 @@ public class DBConnector {
                 td = tagpaths.get(idString);
                 dId = td.getDeviceId();
                 dType = td.getDeviceType();
-                logger.info(String.format("OLD: dType=%s idStr=%s dId=%s", dType, tagpath, dId));
+                // logger.info(String.format("OLD: dType=%s idStr=%s dId=%s", dType, tagpath, dId));
             } catch(Exception e) {}
             if (td == null) {
                 dId = UUID.nameUUIDFromBytes(idString.getBytes()).toString();
@@ -483,7 +483,7 @@ public class DBConnector {
                     tagpaths.putSafe(idString, td);
                     offsetRecord.setEntityCount(1);
                 } catch(Exception e) {}
-                logger.info(String.format("NEW: dType=%s idStr=%s dId=%s", dType, tagpath, dId));
+                // logger.info(String.format("NEW: dType=%s idStr=%s dId=%s", dType, tagpath, dId));
             }
             sourceMap.get("DEVICEID").add(dId);
             sourceMap.get("DEVICETYPE").add(dType);
