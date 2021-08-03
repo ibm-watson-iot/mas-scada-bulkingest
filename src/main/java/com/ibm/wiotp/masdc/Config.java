@@ -35,7 +35,11 @@ public class Config {
     private static String connectorTypeStr = "device";
     private static JSONObject connConfig;
     private static JSONArray deviceTypes;
+    private static JSONArray discardDeviceTypes;
+    private static JSONArray discardDeviceValues;
     private static JSONArray alarmTypes;
+    private static JSONArray discardAlarmTypes;
+    private static JSONArray discardAlarmValues;
     private static int useDefaultDeviceType;
     private static int useDefaultAlarmType;
     private static int deviceFolders;
@@ -112,6 +116,8 @@ public class Config {
         String groupBy = deviceObj.optString("groupBy", "patterns");
         if (groupBy.equals("patterns")) {
             deviceTypes = deviceObj.getJSONArray("patterns");
+            discardDeviceTypes = deviceObj.getJSONArray("discardPatterns");
+            discardDeviceValues = deviceObj.getJSONArray("discardValues");
         } else {
             deviceFolders = deviceObj.optInt("useFolders", 0);            
         }
@@ -120,6 +126,8 @@ public class Config {
         groupBy = alarmObj.optString("groupBy", "patterns");
         if (groupBy.equals("patterns")) {
             alarmTypes = alarmObj.getJSONArray("patterns");
+            discardAlarmTypes = deviceObj.getJSONArray("discardPatterns");
+            discardAlarmValues = deviceObj.getJSONArray("discardValues");
         } else {
             alarmFolders = deviceObj.optInt("useFolders", 0);            
         }
@@ -292,12 +300,28 @@ public class Config {
         return deviceTypes;
     }
 
+    public JSONArray getDiscardDeviceTypes() {
+        return discardDeviceTypes;
+    }
+
+    public JSONArray getDiscardDeviceValues() {
+        return discardDeviceValues;
+    }
+
     public int getUseDefaultDeviceType() {
         return useDefaultDeviceType;
     }
 
     public JSONArray getAlarmTypes() {
         return alarmTypes;
+    }
+
+    public JSONArray getDiscardAlarmTypes() {
+        return discardAlarmTypes;
+    }
+
+    public JSONArray getDiscardAlarmValues() {
+        return discardAlarmValues;
     }
 
     public int getUseDefaultAlarmType() {

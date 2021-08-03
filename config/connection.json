@@ -35,6 +35,13 @@
             {"IBM_TYPE_01": "oakville/.*"},
             {"IBM_TYPE_02": "rutherford/.*"},
             {"IBM_Default_Type": ".*"}
+        ],
+        "discardPatterns": [
+            ".*/status",
+            ".*/temp"
+        ],
+        "discardValues": [
+            { "dataType" : 0, "rangeMin": 0, "rangeMax": 3 }
         ]
     },
     "alarmTypes": {
@@ -42,7 +49,9 @@
         "groupBy": "patterns",
         "patterns": [
             {"IBM_Alarm_Type": ".*"}
-        ]
+        ],
+        "discardPatterns": [],
+        "discardValues": []
     }
 }
 

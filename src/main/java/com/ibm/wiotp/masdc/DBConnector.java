@@ -221,7 +221,6 @@ public class DBConnector {
                     itr = entityTypes.listIterator();
                     while (itr.hasNext()) {
                         String eType = itr.next();
-                        // System.out.println("=======> Type: " + eType);
                         nuploaded = batchInsert(sourceMap, rowCount, eType);
                         offsetRecord.setUploadedCount(nuploaded);
                     }

@@ -30,21 +30,27 @@ public class ParseTagname {
     int useDefaultType = 1;
     List<Pattern> patterns = new ArrayList<>();
     List<String> entityTypes = new ArrayList<String>();
+    List<Pattern> discardPatterns = new ArrayList<>();
+    int discardTagMapCount = 0;
 
     public ParseTagname(Config config) {
         JSONArray types;
+        JSONArray discardTypes;
         int useDefaultType = 1;
         if (config.getConnectorType() == Constants.CONNECTOR_DEVICE) {
             types = config.getDeviceTypes();
             useDefaultType = config.getUseDefaultDeviceType();
+            discardTypes = config.getDiscardDeviceTypes();
         } else {
             types = config.getAlarmTypes();
             useDefaultType = config.getUseDefaultAlarmType();
+            discardTypes = config.getDiscardAlarmTypes();
         }
 
         tagMapCount = types.length();
+        discardTagMapCount = discardTypes.length();
 
-        logger.info(String.format("tagMapCount:%d useDefaultType:%d", tagMapCount, useDefaultType));
+        logger.info(String.format("tagMapCount:%d useDefaultType:%d discardTagMapCount:%d", tagMapCount, useDefaultType, discardTagMapCount));
 
         for (int i = 0; i < tagMapCount; i++) {
             JSONObject obj = types.getJSONObject(i);
@@ -59,6 +65,12 @@ public class ParseTagname {
             }
         }
 
+        for (int i = 0; i < discardTagMapCount; i++) {
+            String discardTypeStr = discardTypes.getString(i);
+            // System.out.println("=====> discardTypeStr: " + discardTypeStr);
+            discardPatterns.add(i, Pattern.compile(discardTypeStr));
+        }
+
     }
 
     public String getType(String tagName) {
@@ -69,6 +81,20 @@ public class ParseTagname {
             Matcher m = pattern.matcher(tagName);
             boolean matches = m.matches();
             if (matches == true) {
+                // check if tagName is in discard list
+                int discard = 0;
+                if (discardTagMapCount > 0) {
+                    for (Pattern discardPattern: discardPatterns) {
+                        Matcher md = discardPattern.matcher(tagName);
+                        boolean mdmatches = md.matches();
+                        if (mdmatches == true) {
+                            logger.info("======> Tag discarded : " + tagName);
+                            discard = 1;
+                            break;
+                        }
+                    }
+                }
+                if (discard == 1) continue;
                 type = entityTypes.get(index);
                 // System.out.println("tagName:" + tagName +"   Type: " + type);
                 break;
