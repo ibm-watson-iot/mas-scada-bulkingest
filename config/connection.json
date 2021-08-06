@@ -39,9 +39,6 @@
         "discardPatterns": [
             ".*/status",
             ".*/temp"
-        ],
-        "discardValues": [
-            { "dataType" : 0, "rangeMin": 0, "rangeMax": 3 }
         ]
     },
     "alarmTypes": {
@@ -50,8 +47,7 @@
         "patterns": [
             {"IBM_Alarm_Type": ".*"}
         ],
-        "discardPatterns": [],
-        "discardValues": []
+        "discardPatterns": []
     }
 }
 

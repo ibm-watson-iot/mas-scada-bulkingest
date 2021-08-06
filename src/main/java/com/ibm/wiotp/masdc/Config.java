@@ -36,10 +36,8 @@ public class Config {
     private static JSONObject connConfig;
     private static JSONArray deviceTypes;
     private static JSONArray discardDeviceTypes;
-    private static JSONArray discardDeviceValues;
     private static JSONArray alarmTypes;
     private static JSONArray discardAlarmTypes;
-    private static JSONArray discardAlarmValues;
     private static int useDefaultDeviceType;
     private static int useDefaultAlarmType;
     private static int deviceFolders;
@@ -117,7 +115,6 @@ public class Config {
         if (groupBy.equals("patterns")) {
             deviceTypes = deviceObj.getJSONArray("patterns");
             discardDeviceTypes = deviceObj.getJSONArray("discardPatterns");
-            discardDeviceValues = deviceObj.getJSONArray("discardValues");
         } else {
             deviceFolders = deviceObj.optInt("useFolders", 0);            
         }
@@ -127,7 +124,6 @@ public class Config {
         if (groupBy.equals("patterns")) {
             alarmTypes = alarmObj.getJSONArray("patterns");
             discardAlarmTypes = deviceObj.getJSONArray("discardPatterns");
-            discardAlarmValues = deviceObj.getJSONArray("discardValues");
         } else {
             alarmFolders = deviceObj.optInt("useFolders", 0);            
         }
@@ -304,10 +300,6 @@ public class Config {
         return discardDeviceTypes;
     }
 
-    public JSONArray getDiscardDeviceValues() {
-        return discardDeviceValues;
-    }
-
     public int getUseDefaultDeviceType() {
         return useDefaultDeviceType;
     }
@@ -318,10 +310,6 @@ public class Config {
 
     public JSONArray getDiscardAlarmTypes() {
         return discardAlarmTypes;
-    }
-
-    public JSONArray getDiscardAlarmValues() {
-        return discardAlarmValues;
     }
 
     public int getUseDefaultAlarmType() {
