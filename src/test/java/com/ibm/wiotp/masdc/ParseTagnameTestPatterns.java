@@ -20,7 +20,7 @@ import java.text.SimpleDateFormat;
 import org.json.JSONObject;
 import org.json.JSONArray;
 
-public class ParseTagnameTest {
+public class ParseTagnameTestPatterns {
 
     private JSONObject connConfig = new JSONObject();
 
@@ -64,23 +64,14 @@ public class ParseTagnameTest {
         JSONObject deviceTypes = new JSONObject();
         JSONArray patterns = new JSONArray();
         JSONObject typePatternx = new JSONObject();
-        typePatternx.put("TestType01", "oakville/pump/.*");
+        typePatternx.put("TestType01", "ca3/hvac/.*zonetemp");
         patterns.put(typePatternx);
         JSONObject typePatterny = new JSONObject();
-        typePatterny.put("TestType02", "rutherford/compressor/.*");
+        typePatterny.put("TestType01", "ca3/hvac/.*roompressure");
         patterns.put(typePatterny);
         JSONObject typePattern1 = new JSONObject();
-        typePattern1.put("CA3DeviceType", "ca3/.*");
+        typePattern1.put("TestType01", "ca3/hvac/.*roomtempf");
         patterns.put(typePattern1);
-        JSONObject typePattern2 = new JSONObject();
-        typePattern2.put("CA3EDeviceType", "ca3e/.*");
-        patterns.put(typePattern2);
-        JSONObject typePattern3 = new JSONObject();
-        typePattern3.put("CA5DeviceType", "ca5/.*");
-        patterns.put(typePattern3);
-        JSONObject typePattern4 = new JSONObject();
-        typePattern4.put("DefaultDeviceType", ".*");
-        patterns.put(typePattern4);
         deviceTypes.put("patterns", patterns);
         deviceTypes.put("groupBy", "patterns");
         JSONArray discardPatterns = new JSONArray();
@@ -102,9 +93,9 @@ public class ParseTagnameTest {
 
 
     @Test
-    public void testDeviceType() {
+    public void testSameDeviceType() {
         System.out.println("");
-        System.out.println("TEST: DeviceType ParseTagname");
+        System.out.println("TEST: SameDeviceType ParseTagname");
         System.out.println("");
 
         Config config = new Config(connConfig, "device");
@@ -116,43 +107,20 @@ public class ParseTagnameTest {
 
         System.out.println("Connector Type: " + config.getConnectorTypeStr());
 
-        String type = config.getTypeByTagname("ca3/boiler/temp");
-        assertEquals("ca3/boiler/temp : CA3DeviceType", "CA3DeviceType", type);
-        type = config.getTypeByTagname("oakville/pump/xxx");
-        assertEquals("oakville/pump/xxx : TestType01", "TestType01", type);
-        type = config.getTypeByTagname("rutherford/compressor/xxx");
-        assertEquals("rutherford/compressor : TestType02", "TestType02", type);
-        type = config.getTypeByTagname("ca3e/compressor/pressure");
-        assertEquals("ca3e/compressore/pressure : CA3EDeviceType", "CA3EDeviceType", type);
-        type = config.getTypeByTagname("ca3eboiler/temp");
-        assertEquals("ca3eboiler/temp : DefaultDeviceType", "DefaultDeviceType", type);
-        type = config.getTypeByTagname("ca3");
-        assertEquals("ca3 : DefaultDeviceType", "DefaultDeviceType", type);
-        type = config.getTypeByTagname("ca5");
-        assertNotEquals("ca5 : CA5DeviceType", "CA5DeviceType", type);
+        String type = config.getTypeByTagname("ca3/hvac/tcp 7/rfu1_11zonetemp");
+        System.out.println("Device Type for ca3/hvac/tcp 7/rfu1_11zonetemp: " + type);
+        assertEquals("ca3/hvac/tcp 7/rfu1_11zonetemp : TestType01", "TestType01", type);
+        type = config.getTypeByTagname("ca3/hvac/lab153/cu3/fc3_10/roomtempf");
+        assertEquals("ca3/hvac/lab153/cu3/fc3_10/roomtempf : TestType01", "TestType01", type);
+        type = config.getTypeByTagname("ca3/hvac/quad4/cleanroom/roompressure");
+        assertEquals("ca3/hvac/quad4/cleanroom/roompressure : TestType01", "TestType01", type);
+        System.out.println("Device Type for ca3/hvac/quad4/cleanroom/roompressure: " + type);
+        type = config.getTypeByTagname("ca3/xhvac/quad4/cleanroom/roompressure");
+        assertNotEquals("ca3/xhvac/quad4/cleanroom/roompressure : TestType01", "TestType01", type);
+        type = config.getTypeByTagname("ca3/hvac/tcp 7/rfu1_11zonetemp");
+        System.out.println("Device Type for ca3/hvac/tcp 7/rfu1_11zonetemp: " + type);
+        assertEquals("ca3/hvac/tcp 7/rfu1_11zonetemp : TestType01", "TestType01", type);
     }
 
-    @Test
-    public void testAlarmType() {
-        System.out.println("");
-        System.out.println("TEST: AlarmType ParseTagname");
-        System.out.println("");
-
-        Config config = new Config(connConfig, "alarm");
-        try {
-            config.set();
-        } catch(Exception e) {
-            e.printStackTrace();
-        }
-
-        System.out.println("Connector Type: " + config.getConnectorTypeStr());
-
-        String type = config.getTypeByTagname("ca3/boiler/temp");
-        assertEquals("ca3/boiler/temp : DefaultAlarmType", "DefaultAlarmType", type);
-        type = config.getTypeByTagname("ca3e/compressor/pressure");
-        assertEquals("ca3e/compressore/pressure : DefaultAlarmType", "DefaultAlarmType", type);
-        type = config.getTypeByTagname("ca5");
-        assertNotEquals("ca5 : CA5DeviceType", "CA5DeviceType", type);
-    }
 }
 
