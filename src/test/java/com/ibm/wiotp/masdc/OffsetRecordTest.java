@@ -72,6 +72,8 @@ public class OffsetRecordTest {
         patterns.put(pattern);
         deviceTypes.put("patterns", patterns);
         deviceTypes.put("groupBy", "patterns");
+        JSONArray discardPatterns = new JSONArray();
+        deviceTypes.put("discardPatterns", discardPatterns);
         connConfig.put("deviceTypes", deviceTypes);
 
         JSONObject alarmTypes = new JSONObject();
@@ -81,6 +83,7 @@ public class OffsetRecordTest {
         patterns.put(pattern);
         alarmTypes.put("patterns", patterns);
         alarmTypes.put("groupBy", "patterns");
+        deviceTypes.put("discardPatterns", discardPatterns);
         connConfig.put("alarmTypes", alarmTypes);
 
         // System.out.println(connConfig.toString(4));
@@ -128,7 +131,7 @@ public class OffsetRecordTest {
         assertEquals(2020, year);
         assertEquals(5, month);
 
-        for (int i=6; i<20; i++) {
+        for (int i=6; i<22; i++) {
             int nowait = offRec.updateOffsetFile(startTimeSecs, endTimeSecs, year, month, Constants.EXTRACT_STATUS_NO_TABLE);
             String newDateStr;
             int newYear = 2020;
@@ -211,7 +214,7 @@ public class OffsetRecordTest {
         int we = 0;
         long waitTime = 0;
         long cycleStartTimeMillis;
-        for (int i=0; i<30; i++) {
+        for (int i=0; i<32; i++) {
             cycleStartTimeMillis = System.currentTimeMillis();
             int waitFlag = offRec.updateOffsetFile(startTimeSecs, endTimeSecs, year, month, Constants.EXTRACT_STATUS_TABLE_NO_DATA);
             startTimeSecs = offRec.getStartTimeSecs();

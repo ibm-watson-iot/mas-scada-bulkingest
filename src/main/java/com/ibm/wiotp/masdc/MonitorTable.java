@@ -55,6 +55,7 @@ public class MonitorTable {
         sb.append("STRINGVALUE VARCHAR(256), ");
         sb.append("DATEVALUE VARCHAR(256), ");
         sb.append("EVT_NAME VARCHAR(256), "); 
+        sb.append("TAG VARCHAR(256), "); 
         sb.append("DEVICETYPE VARCHAR(64), "); 
         sb.append("DEVICEID VARCHAR(256), ");
         sb.append("LOGICALINTERFACE_ID VARCHAR(64), ");
@@ -85,6 +86,7 @@ public class MonitorTable {
         sb.append("NAME VARCHAR(256), ");
         sb.append("ACKBY VARCHAR(256), ");
         sb.append("VALUE DOUBLE, ");
+        sb.append("TAG VARCHAR(256), ");
         sb.append("DEVICETYPE VARCHAR(64), "); 
         sb.append("DEVICEID VARCHAR(256), ");
         sb.append("LOGICALINTERFACE_ID VARCHAR(64), ");

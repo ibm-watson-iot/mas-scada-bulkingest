@@ -75,6 +75,8 @@ public class TagDataTest {
         patterns.put(typePattern);
         deviceTypes.put("patterns", patterns);
         deviceTypes.put("groupBy", "patterns");
+        JSONArray discardPatterns = new JSONArray();
+        deviceTypes.put("discardPatterns", discardPatterns);
         connConfig.put("deviceTypes", deviceTypes);
 
         JSONObject alarmTypes = new JSONObject();
@@ -85,6 +87,7 @@ public class TagDataTest {
         patterns.put(pattern);
         alarmTypes.put("patterns", patterns);
         alarmTypes.put("groupBy", "patterns");
+        deviceTypes.put("discardPatterns", discardPatterns);
         connConfig.put("alarmTypes", alarmTypes);
 
     }      

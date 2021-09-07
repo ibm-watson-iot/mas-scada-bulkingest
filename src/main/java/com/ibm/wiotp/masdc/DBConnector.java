@@ -428,6 +428,7 @@ public class DBConnector {
                 if (rs.getObject(i) != null) {
                     if (colName.equals("tagpath")) {
                         tagpath = rs.getString(i).toLowerCase();
+                        sourceMap.get("TAG").add(tagpath);
 
                     } else if (colName.equals("t_stamp")) {
                         long lastTimeStamp = rs.getLong(i);

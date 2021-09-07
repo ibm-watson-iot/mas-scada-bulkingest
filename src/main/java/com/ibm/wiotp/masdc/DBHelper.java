@@ -100,13 +100,13 @@ public class DBHelper {
 
     public String[] getMonitorDBCols() {
         if (this.connectorType == 1) {
-            String [] dbCols = {"TAGID", "INTVALUE", "FLOATVALUE", "STRINGVALUE", "DATEVALUE", "EVT_NAME",
+            String [] dbCols = {"TAGID", "INTVALUE", "FLOATVALUE", "STRINGVALUE", "DATEVALUE", "TAG", "EVT_NAME",
                 "DEVICETYPE", "DEVICEID", "LOGICALINTERFACE_ID", "EVENTTYPE",
                 "FORMAT", "RCV_TIMESTAMP_UTC", "UPDATED_UTC"};
             return dbCols;
         }
 
-        String [] dbCols = {"ALARMID", "EVENTID", "ACKBY", "NAME", "ETYPE", "DISPLAYPATH", "PRIORITY", "VALUE",
+        String [] dbCols = {"ALARMID", "EVENTID", "ACKBY", "NAME", "ETYPE", "DISPLAYPATH", "PRIORITY", "VALUE", "TAG",
                 "DEVICETYPE", "DEVICEID", "LOGICALINTERFACE_ID", "EVENTTYPE",
                 "FORMAT", "RCV_TIMESTAMP_UTC", "UPDATED_UTC"};
         return dbCols;
@@ -116,14 +116,14 @@ public class DBHelper {
         String insertSQL;
         if (this.connectorType == 1) {
             insertSQL = "INSERT INTO IOT_" + eType.toUpperCase() +
-                " (TAGID, INTVALUE, FLOATVALUE, STRINGVALUE, DATEVALUE, EVT_NAME, DEVICETYPE, DEVICEID, " +
+                " (TAGID, INTVALUE, FLOATVALUE, STRINGVALUE, DATEVALUE, TAG, EVT_NAME, DEVICETYPE, DEVICEID, " +
                 "LOGICALINTERFACE_ID, EVENTTYPE, FORMAT, RCV_TIMESTAMP_UTC, UPDATED_UTC) VALUES " +
-                "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         } else {
             insertSQL = "INSERT INTO IOT_" + eType.toUpperCase() +
-                " (ALARMID,EVENTID,ACKBY,NAME,ETYPE,DISPLAYPATH,PRIORITY,VALUE," +
+                " (ALARMID,EVENTID,ACKBY,NAME,ETYPE,DISPLAYPATH,PRIORITY,VALUE,TAG," +
                 "DEVICETYPE,DEVICEID,LOGICALINTERFACE_ID,EVENTTYPE,FORMAT,RCV_TIMESTAMP_UTC,UPDATED_UTC) " +
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         }
         return insertSQL;
     }
@@ -145,13 +145,14 @@ public class DBHelper {
             ps.setString(4, String.valueOf(sourceMap.get("STRINGVALUE").get(i)));
             ps.setString(5, String.valueOf(sourceMap.get("DATEVALUE").get(i)));
             ps.setString(6, String.valueOf(sourceMap.get("EVT_NAME").get(i)));
-            ps.setString(7, String.valueOf(sourceMap.get("DEVICETYPE").get(i)));
-            ps.setString(8, String.valueOf(sourceMap.get("DEVICEID").get(i)));
-            ps.setString(9, String.valueOf(sourceMap.get("LOGICALINTERFACE_ID").get(i)));
-            ps.setString(10,String.valueOf(sourceMap.get("EVENTTYPE").get(i)));
-            ps.setString(11,String.valueOf(sourceMap.get("FORMAT").get(i)));
-            ps.setTimestamp(12,Timestamp.valueOf((sourceMap.get("RCV_TIMESTAMP_UTC").get(i)).toString()));
-            ps.setTimestamp(13,Timestamp.valueOf((sourceMap.get("UPDATED_UTC").get(i)).toString()));
+            ps.setString(7, String.valueOf(sourceMap.get("TAG").get(i)));
+            ps.setString(8, String.valueOf(sourceMap.get("DEVICETYPE").get(i)));
+            ps.setString(9, String.valueOf(sourceMap.get("DEVICEID").get(i)));
+            ps.setString(10, String.valueOf(sourceMap.get("LOGICALINTERFACE_ID").get(i)));
+            ps.setString(11,String.valueOf(sourceMap.get("EVENTTYPE").get(i)));
+            ps.setString(12,String.valueOf(sourceMap.get("FORMAT").get(i)));
+            ps.setTimestamp(13,Timestamp.valueOf((sourceMap.get("RCV_TIMESTAMP_UTC").get(i)).toString()));
+            ps.setTimestamp(14,Timestamp.valueOf((sourceMap.get("UPDATED_UTC").get(i)).toString()));
 
         } else {
 
@@ -175,13 +176,14 @@ public class DBHelper {
             } else {
                 ps.setDouble(8, Double.parseDouble((sourceMap.get("VALUE").get(i)).toString()));
             }
-            ps.setString(9, String.valueOf(sourceMap.get("DEVICETYPE").get(i)));
-            ps.setString(10, String.valueOf(sourceMap.get("DEVICEID").get(i)));
-            ps.setString(11, String.valueOf(sourceMap.get("LOGICALINTERFACE_ID").get(i)));
-            ps.setString(12,String.valueOf(sourceMap.get("EVENTTYPE").get(i)));
-            ps.setString(13,String.valueOf(sourceMap.get("FORMAT").get(i)));
-            ps.setTimestamp(14,Timestamp.valueOf((sourceMap.get("RCV_TIMESTAMP_UTC").get(i)).toString()));
-            ps.setTimestamp(15,Timestamp.valueOf((sourceMap.get("UPDATED_UTC").get(i)).toString()));
+            ps.setString(9, String.valueOf(sourceMap.get("TAG").get(i)));
+            ps.setString(10, String.valueOf(sourceMap.get("DEVICETYPE").get(i)));
+            ps.setString(11, String.valueOf(sourceMap.get("DEVICEID").get(i)));
+            ps.setString(12, String.valueOf(sourceMap.get("LOGICALINTERFACE_ID").get(i)));
+            ps.setString(13,String.valueOf(sourceMap.get("EVENTTYPE").get(i)));
+            ps.setString(14,String.valueOf(sourceMap.get("FORMAT").get(i)));
+            ps.setTimestamp(15,Timestamp.valueOf((sourceMap.get("RCV_TIMESTAMP_UTC").get(i)).toString()));
+            ps.setTimestamp(16,Timestamp.valueOf((sourceMap.get("UPDATED_UTC").get(i)).toString()));
 
         }
         return ps;

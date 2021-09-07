@@ -89,6 +89,7 @@ public class EntityType {
                 dataItemDtoArray.put(createDataDtoObject("stringvalue", "METRIC", "STRINGVALUE", "LITERAL"));
                 dataItemDtoArray.put(createDataDtoObject("datevalue", "METRIC", "DATEVALUE", "LITERAL"));
                 dataItemDtoArray.put(createDataDtoObject("evt_name", "METRIC", "EVT_NAME", "LITERAL"));
+                dataItemDtoArray.put(createDataDtoObject("tag", "METRIC", "TAG", "LITERAL"));
             } else {
                 dataItemDtoArray.put(createDataDtoObject("name", "METRIC", "NAME", "LITERAL"));
                 dataItemDtoArray.put(createDataDtoObject("alarmid", "METRIC", "ALARMID", "NUMBER"));
@@ -98,6 +99,7 @@ public class EntityType {
                 dataItemDtoArray.put(createDataDtoObject("value", "METRIC", "VALUE", "NUMBER"));
                 dataItemDtoArray.put(createDataDtoObject("priority", "METRIC", "PRIORITY", "NUMBER"));
                 dataItemDtoArray.put(createDataDtoObject("ackby", "METRIC", "ACKBY", "LITERAL"));
+                dataItemDtoArray.put(createDataDtoObject("tag", "METRIC", "TAG", "LITERAL"));
             }
         
             // Add Dimension objects in dataItemDtoArray
