@@ -1,5 +1,5 @@
 SELECT 
-id,
+id as alarmid,
 eventid,
 substring(replace (source,'prov:default:/tag:', ""),1, instr(replace (source,'prov:default:/tag:', ""),":/alm:")-1) as tagpath,
 displaypath, 
