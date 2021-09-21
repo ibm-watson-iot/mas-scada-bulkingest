@@ -144,8 +144,8 @@ public class DBHelper {
             }
             ps.setString(4, String.valueOf(sourceMap.get("STRINGVALUE").get(i)));
             ps.setString(5, String.valueOf(sourceMap.get("DATEVALUE").get(i)));
-            ps.setString(6, String.valueOf(sourceMap.get("EVT_NAME").get(i)));
-            ps.setString(7, String.valueOf(sourceMap.get("TAG").get(i)));
+            ps.setString(6, String.valueOf(sourceMap.get("TAG").get(i)));
+            ps.setString(7, String.valueOf(sourceMap.get("EVT_NAME").get(i)));
             ps.setString(8, String.valueOf(sourceMap.get("DEVICETYPE").get(i)));
             ps.setString(9, String.valueOf(sourceMap.get("DEVICEID").get(i)));
             ps.setString(10, String.valueOf(sourceMap.get("LOGICALINTERFACE_ID").get(i)));
