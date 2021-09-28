@@ -56,9 +56,9 @@ public class OffsetRecord {
 
         String dataDir = config.getDataDir();
         String etype = config.getEntityType();
-        if (etype.equals("")) {
+        // if (etype.equals("")) {
             etype = config.getClientSite() + "_" + config.getConnectorTypeStr();
-        }
+        // }
 
         if (dataDir.equals("")) {
             offsetFile = etype + ".offset";

@@ -312,5 +312,73 @@ public class OffsetRecordTest {
         offRec.deleteOffsetFile();
     }
 
+    @Test
+    public void testOffsetRecord_05() {
+
+        System.out.println("");
+        System.out.println("TEST_05: testOffsetRecordTableWithCurrentDateNoData");
+        System.out.println("");
+
+        // set startDate
+        config.setStartDate("2021-09-15 00:00:00");
+        config.setFetchIntervalHistorical(86400);
+
+        OffsetRecord offRec = new OffsetRecord(config, true);
+        assertNotNull("shouldn't be null", offRec);
+
+        long startTimeSecs = offRec.getStartTimeSecs();
+        long endTimeSecs = offRec.getEndTimeSecs();
+        int year = offRec.getYear();
+        int month = offRec.getMonth();
+
+        System.out.println(String.format("StartingRecord: %d %d", startTimeSecs, endTimeSecs));
+
+        int we = 0;
+        long waitTime = 0;
+        long cycleStartTimeMillis;
+        for (int i=0; i<10; i++) {
+            cycleStartTimeMillis = System.currentTimeMillis();
+            int waitFlag = offRec.updateOffsetFile(startTimeSecs, endTimeSecs, year, month, Constants.EXTRACT_STATUS_TABLE_WITH_DATA);
+            startTimeSecs = offRec.getStartTimeSecs();
+            endTimeSecs = offRec.getEndTimeSecs();
+            System.out.println(String.format("StartingRecord: %d %d", startTimeSecs, endTimeSecs));
+
+            year = offRec.getYear();
+            month = offRec.getMonth();
+            System.out.println(String.format("i=%d y=%d m=%d wr=%d we=%d", i, year, month, waitFlag, we));
+            assertEquals(waitFlag, 0);
+            try {
+                Thread.sleep(1500);
+            } catch(Exception e) {}
+            waitTime = offRec.getWaitTimeMilli(waitFlag, cycleStartTimeMillis);
+            assertEquals(waitTime, 100);
+        }
+
+        for (int i=0; i<1; i++) {
+            cycleStartTimeMillis = System.currentTimeMillis();
+            int waitFlag = offRec.updateOffsetFile(startTimeSecs, endTimeSecs, year, month, Constants.EXTRACT_STATUS_TABLE_WITH_DATA);
+            startTimeSecs = offRec.getStartTimeSecs();
+            endTimeSecs = offRec.getEndTimeSecs();
+            System.out.println(String.format("StartingRecord: %d %d", startTimeSecs, endTimeSecs));
+
+            year = offRec.getYear();
+            month = offRec.getMonth();
+            we=1;
+            System.out.println(String.format("i=%d y=%d m=%d wr=%d we=%d", i, year, month, waitFlag, we));
+            if ( endTimeSecs < (cycleStartTimeMillis/1000)) {
+                assertEquals(waitFlag, 0);
+            } else {
+                assertEquals(waitFlag, 1);
+            }
+            try {
+                Thread.sleep(1500);
+            } catch(Exception e) {}
+            waitTime = offRec.getWaitTimeMilli(waitFlag, cycleStartTimeMillis);
+            System.out.println(String.format("WaitTime: %d", waitTime));
+        }
+
+        offRec.deleteOffsetFile();
+
+    }
 }
 
