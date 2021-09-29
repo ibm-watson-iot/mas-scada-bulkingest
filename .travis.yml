@@ -5,6 +5,9 @@ jdk:
   - openjdk11
 
 script:
+  - mkdir -p $TRAVIS_BUILD_DIR/testdata/volume/data
+  - cp -r $TRAVIS_BUILD_DIR/config $TRAVIS_BUILD_DIR/testdata/volume/.
+
   # Compile
   - mvn -q -B -f pom.xml clean install
 

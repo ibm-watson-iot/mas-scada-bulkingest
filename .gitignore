@@ -2,5 +2,6 @@ pkgs
 target
 volume
 tagcache
+testdata
 tmp
 *.offset

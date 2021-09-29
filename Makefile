@@ -18,6 +18,8 @@ all: buildjar
 
 buildjar:
 	@echo Build utilities
+	mkdir -p testdata/volume/data
+	cp -r config testdata/volume/.
 	mvn clean
 	mvn package
 	cp target/*.jar lib/.
