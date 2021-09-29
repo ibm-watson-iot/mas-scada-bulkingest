@@ -224,6 +224,14 @@ public class Config {
         return dataDir;
     }
 
+    public void setInstallDir(String dirPath) {
+        installDir = dirPath;
+    }
+
+    public void setDataDir(String dirPath) {
+        dataDir = dirPath;
+    }
+
     public String getLogFile() {
         return logFile;
     }

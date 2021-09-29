@@ -42,6 +42,7 @@ public class OffsetRecord {
     private static long endTimeSecs;
     private static int  month;
     private static int  year;
+    private static int  day;
     private static int status;
     private static AtomicLong processedCount = new AtomicLong(0);
     private static AtomicLong uploadedCount = new AtomicLong(0);
@@ -55,10 +56,7 @@ public class OffsetRecord {
         this.startDate = config.getStartDate();
 
         String dataDir = config.getDataDir();
-        String etype = config.getEntityType();
-        // if (etype.equals("")) {
-            etype = config.getClientSite() + "_" + config.getConnectorTypeStr();
-        // }
+        String etype = config.getClientSite() + "_" + config.getConnectorTypeStr();
 
         if (dataDir.equals("")) {
             offsetFile = etype + ".offset";
@@ -69,10 +67,14 @@ public class OffsetRecord {
         if (offsetInterval > 120) offsetInterval = 120;
         offsetIntervalHistorical = config.getFetchIntervalHistorical();
 
-        if (newOffsetFile) {
-            // delete existing offset file
-            File f = new File(offsetFile);
-            f.delete();
+        // check if offset file exists
+        if (checkFileExists(offsetFile) == 1) {
+            if (newOffsetFile) {
+                logger.info("Create a new offset file");
+                // delete existing offset file
+                File f = new File(offsetFile);
+                f.delete();
+            }
         }
 
         readOffsetFile();
@@ -93,6 +95,10 @@ public class OffsetRecord {
         
     public int getYear() {
         return year;
+    }
+
+    public int getDay() {
+        return day;
     }
 
     public long setProcessedCount(long count) {
@@ -242,7 +248,7 @@ public class OffsetRecord {
     }
 
     private static int updateOffsetByDate(String dateStr, int status) {
-        int retval = 0;
+        int retval = 1;
         JSONObject ofrec = new JSONObject();
         long currentTimeMilli = System.currentTimeMillis();
         DateUtil duc = new DateUtil(currentTimeMilli);
@@ -252,36 +258,24 @@ public class OffsetRecord {
         endTimeSecs = startTimeSecs + offsetInterval;
         month = du.getMonth();
         year = du.getYear();
+        day = du.getDay();
 
-        if (year == duc.getYear() && month == duc.getMonth()) {
-            retval = 1;
-            // use fectch interval as 30 seconds
-            // start and endtime can not be more than current time
-            if (currTimeWindowCycle == 0) {
-                // start from 00:00:00 of 1st of the month
-                String newDateStr = String.format("%4d-%02d-01 00:00:00", year, month);
-                DateUtil ndu = new DateUtil(newDateStr);
-                startTimeSecs = ndu.getTimeSecs();
-                endTimeSecs = startTimeSecs + offsetInterval;
-                currTimeWindowCycle = 1;
-            } else {
-                if (endTimeSecs < duc.getTimeSecs()) {
-                    retval = 0;
-                }
-            }
-        } else if (startTimeSecs > duc.getTimeSecs()) {
-            // configured time is in future - log and set to current time
-            logger.info(String.format("Start time (%d) is more than current time (%d). Starting from current system time.", startTimeSecs, duc.getTimeSecs()));
+        // compare dateStr with current date
+        if (du.getTimeMilli() > duc.getTimeMilli()) {
+            // dateStr is in future
             startTimeSecs = duc.getTimeSecs();
             endTimeSecs = startTimeSecs + offsetInterval;
             month = duc.getMonth();
             year = duc.getYear();
-            // set retval = 2 for fetch cycle to sleep for offsetInterval before trying next fetch
+            day = duc.getDay();
             retval = 2;
-        } else {
-            if (year < duc.getYear() || month < duc.getMonth()) {
-                endTimeSecs = startTimeSecs + offsetIntervalHistorical;
+        } else if (du.getTimeMilli() < duc.getTimeMilli()) {
+            // dateStr is in past
+            endTimeSecs = startTimeSecs + offsetIntervalHistorical;
+            if (endTimeSecs > duc.getTimeSecs()) {
+                endTimeSecs = duc.getTimeSecs();
             }
+            retval = 0;
         }
 
         ofrec.put("startTimeSecs", startTimeSecs);
@@ -306,6 +300,20 @@ public class OffsetRecord {
             logger.log(Level.INFO, "Failed to update offset file: ", ex);
         }
     }
+
+    private static int checkFileExists(String fileName) {
+        int found = 0;
+        try {
+            File f = new File(fileName);
+            if (f.exists()) {
+                found = 1;
+            }
+        } catch (Exception e) {
+            logger.info("File is not found. " + fileName + "  Msg: " + e.getMessage());
+        }
+        return found;
+    }
+
 
 }
 

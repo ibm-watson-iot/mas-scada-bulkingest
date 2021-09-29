@@ -56,6 +56,7 @@ public class DateUtil {
             cal.setTime(date);
             month = cal.get(Calendar.MONTH) + 1;
             year = cal.get(Calendar.YEAR);
+            day = cal.get(Calendar.DAY_OF_MONTH);
         } catch(Exception ex) {
             logger.log(Level.INFO, "Failed to set time values: ", ex);
         }
@@ -66,12 +67,14 @@ public class DateUtil {
         timeSecs = tmMilli/1000;
         month = 0;
         year = 0;
+        day = 0;
         try {
             Date date = new Date(tmMilli);
             cal = Calendar.getInstance(localTZ);
             cal.setTime(date);
             month = cal.get(Calendar.MONTH) + 1;
             year = cal.get(Calendar.YEAR);
+            day = cal.get(Calendar.DAY_OF_MONTH);
         } catch(Exception ex) {
             logger.log(Level.INFO, "Failed to set time values: ", ex);
         }
@@ -93,6 +96,9 @@ public class DateUtil {
         return year;
     }
 
+    public int getDay() {
+        return day;
+    }
 }
 
 
